@@ -1,0 +1,90 @@
+from fastapi import APIRouter, Request, HTTPException, Header, Query
+from pydantic import BaseModel
+from typing import Optional
+import os
+import time
+import jwt
+
+from crypto import decrypt
+
+router = APIRouter()
+
+ADMIN_PASSWORD = os.environ["ADMIN_PASSWORD"]
+JWT_SECRET     = os.environ["JWT_SECRET"]
+TOKEN_TTL_SEC  = 8 * 3600
+
+class LoginBody(BaseModel):
+    password: str
+
+def _require_admin(authorization: Optional[str]) -> dict:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "missing bearer token")
+    token = authorization.split(" ", 1)[1]
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(401, "token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(401, "invalid token")
+    if payload.get("scope") != "admin":
+        raise HTTPException(401, "not an admin token")
+    return payload
+
+@router.post("/login")
+async def admin_login(body: LoginBody):
+    if body.password != ADMIN_PASSWORD:
+        raise HTTPException(401, "wrong password")
+    token = jwt.encode({
+        "scope": "admin",
+        "exp":   int(time.time()) + TOKEN_TTL_SEC,
+    }, JWT_SECRET, algorithm="HS256")
+    return {"token": token, "expires_in": TOKEN_TTL_SEC}
+
+def _row_to_dict(row) -> dict:
+    d = dict(row)
+    d["pan_number"]     = decrypt(d.pop("pan_number_enc", "") or "")
+    d["account_number"] = decrypt(d.pop("account_number_enc", "") or "")
+    if d.get("created_at") is not None:
+        d["created_at"] = d["created_at"].isoformat()
+    return d
+
+@router.get("/submissions")
+async def list_submissions(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+    q: Optional[str] = Query(None, description="search name or email"),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+):
+    _require_admin(authorization)
+    db = request.app.state.db
+    if q:
+        rows = await db.fetch(
+            """
+            SELECT * FROM submissions
+             WHERE full_name ILIKE $1 OR email ILIKE $1
+             ORDER BY id DESC
+             LIMIT $2 OFFSET $3
+            """,
+            f"%{q}%", limit, offset,
+        )
+    else:
+        rows = await db.fetch(
+            "SELECT * FROM submissions ORDER BY id DESC LIMIT $1 OFFSET $2",
+            limit, offset,
+        )
+    total = await db.fetchval("SELECT COUNT(*) FROM submissions")
+    return {"total": total, "rows": [_row_to_dict(r) for r in rows]}
+
+@router.get("/submissions/{sub_id}")
+async def get_submission(
+    sub_id: int,
+    request: Request,
+    authorization: Optional[str] = Header(None),
+):
+    _require_admin(authorization)
+    db = request.app.state.db
+    row = await db.fetchrow("SELECT * FROM submissions WHERE id = $1", sub_id)
+    if not row:
+        raise HTTPException(404, "not found")
+    return _row_to_dict(row)

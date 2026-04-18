@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin — SpecOps</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #000;
+    --surface:   #0a0a0a;
+    --border:    rgba(255,255,255,0.14);
+    --border-md: rgba(255,255,255,0.28);
+    --text:      #f2f2f2;
+    --muted:     #9a9a9a;
+    --hint:      #5a5a5a;
+    --accent:    #ffffff;
+    --green:     #3ecf8e;
+    --green-soft:rgba(62,207,142,0.08);
+    --on-accent: #000;
+    --red:       #f87171;
+    --mono:      'JetBrains Mono', 'Courier New', Courier, monospace;
+  }
+  html[data-theme="light"] {
+    --bg:        #f6f6f4;
+    --surface:   #ffffff;
+    --border:    rgba(0,0,0,0.14);
+    --border-md: rgba(0,0,0,0.32);
+    --text:      #111;
+    --muted:     #555;
+    --hint:      #8a8a8a;
+    --accent:    #000;
+    --green:     #1fa36c;
+    --green-soft:rgba(31,163,108,0.10);
+    --on-accent: #fff;
+  }
+
+  html, body { background: var(--bg); }
+  body {
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+    min-height: 100vh;
+    letter-spacing: .01em;
+  }
+
+  .page { max-width: 1180px; margin: 0 auto; padding: 3rem 2rem 5rem; }
+
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: 1.2rem; border-bottom: 1px solid var(--border); margin-bottom: 2rem;
+  }
+  .topbar h1 { font-size: 13px; font-weight: 500; letter-spacing: .18em; text-transform: uppercase; }
+  .topbar .meta { display: flex; align-items: center; gap: 1rem; font-size: 11px; letter-spacing: .14em; color: var(--hint); text-transform: uppercase; }
+
+  .theme-toggle, .btn {
+    font-family: var(--mono);
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    padding: 6px 14px;
+    font-size: 10px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color .15s, background .15s, opacity .15s;
+  }
+  .theme-toggle:hover, .btn:hover:not(:disabled) { border-color: var(--accent); background: var(--surface); }
+  .btn { padding: 10px 18px; font-size: 11px; }
+  .btn-primary {
+    background: var(--accent); color: var(--on-accent); border-color: var(--accent);
+  }
+  .btn-primary:hover:not(:disabled) { opacity: .88; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  .card { border: 1px solid var(--border); margin-bottom: 1.2rem; }
+  .card-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+  }
+  .card-head .slash { color: var(--muted); }
+  .card-head .tag { color: var(--muted); }
+  .card-body { padding: 22px 18px; }
+
+  /* login */
+  .login-wrap { max-width: 420px; margin: 4rem auto 0; }
+  .login-wrap .card-body { padding: 28px 22px; }
+  .field { margin-bottom: 1rem; }
+  .field:last-child { margin-bottom: 0; }
+  .field label {
+    display: block; font-size: 10px; color: var(--muted);
+    margin-bottom: 7px; letter-spacing: .14em; text-transform: uppercase;
+  }
+  .field input {
+    width: 100%; background: transparent; border: 1px solid var(--border);
+    border-radius: 0; padding: 10px 12px; font-size: 12px; font-family: var(--mono);
+    color: var(--text); outline: none; transition: border-color .15s;
+  }
+  .field input:focus { border-color: var(--accent); }
+
+  /* toolbar */
+  .toolbar { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+  .toolbar input {
+    flex: 1;
+    background: transparent; border: 1px solid var(--border);
+    padding: 10px 12px; font-family: var(--mono); font-size: 12px; color: var(--text);
+    outline: none;
+  }
+  .toolbar input:focus { border-color: var(--accent); }
+  .toolbar .count { font-size: 10px; letter-spacing: .2em; color: var(--muted); text-transform: uppercase; white-space: nowrap; }
+
+  /* table */
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead th {
+    text-align: left; font-weight: 500; text-transform: uppercase;
+    font-size: 10px; letter-spacing: .18em; color: var(--muted);
+    padding: 10px 12px; border-bottom: 1px solid var(--border);
+  }
+  tbody td { padding: 12px; border-bottom: 1px solid var(--border); }
+  tbody tr { cursor: pointer; transition: background .12s; }
+  tbody tr:hover { background: var(--surface); }
+  tbody tr:last-child td { border-bottom: none; }
+  .mono-id { color: var(--muted); font-size: 11px; }
+  .ok-dot { color: var(--green); }
+  .bad-dot { color: var(--red); }
+
+  .empty, .loading {
+    text-align: center; padding: 3rem 1rem; font-size: 11px;
+    color: var(--hint); letter-spacing: .14em; text-transform: uppercase;
+  }
+
+  .log { font-size: 11px; color: var(--muted); letter-spacing: .04em; min-height: 1.6em; margin-top: 10px; }
+  .log.ok  { color: var(--green); }
+  .log.err { color: var(--red); }
+  .log .prefix { color: var(--hint); margin-right: 8px; }
+
+  /* drawer */
+  .drawer-bg {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7); z-index: 100;
+    align-items: stretch; justify-content: flex-end;
+  }
+  .drawer-bg.open { display: flex; }
+  .drawer {
+    background: var(--bg); border-left: 1px solid var(--border);
+    width: 100%; max-width: 640px;
+    overflow-y: auto;
+  }
+  .drawer-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+    position: sticky; top: 0; background: var(--bg); z-index: 2;
+  }
+  .drawer-head button.x {
+    background: transparent; border: none; color: var(--muted);
+    font-size: 20px; cursor: pointer; line-height: 1;
+  }
+  .drawer-body { padding: 22px 18px; }
+  .kv { display: grid; grid-template-columns: 160px 1fr; gap: 0; border-top: 1px solid var(--border); }
+  .kv:last-child { border-bottom: 1px solid var(--border); }
+  .kv dt {
+    padding: 10px 12px; background: var(--surface);
+    font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted);
+    border-right: 1px solid var(--border);
+  }
+  .kv dd { padding: 10px 12px; font-size: 12px; color: var(--text); word-break: break-word; }
+  .kv dd.empty-val { color: var(--hint); font-style: italic; }
+  .kv dd a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+  .group-label {
+    font-size: 10px; letter-spacing: .22em; text-transform: uppercase;
+    color: var(--hint); margin: 1.4rem 0 .6rem;
+  }
+  .group-label:first-child { margin-top: 0; }
+
+  .file-preview { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 10px; }
+  .file-preview a { border: 1px solid var(--border); padding: 8px 10px; font-size: 11px; color: var(--text); }
+  .file-preview img { max-width: 240px; max-height: 180px; border: 1px solid var(--border); }
+  .file-preview video { max-width: 320px; border: 1px solid var(--border); }
+
+  @media (max-width: 720px) {
+    .kv { grid-template-columns: 1fr; }
+    .kv dt { border-right: none; border-bottom: 1px solid var(--border); }
+    table thead { display: none; }
+    table, tbody, tr, td { display: block; width: 100%; }
+    tbody tr { border-bottom: 1px solid var(--border); padding: 8px 0; }
+    tbody td { border: none; padding: 4px 12px; }
+  }
+</style>
+<script src="config.js"></script>
+<script>
+  (function(){
+    try {
+      var t = localStorage.getItem('theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    } catch(e) {}
+  })();
+</script>
+</head>
+<body>
+<div class="page">
+
+  <div class="topbar">
+    <h1>SpecOps Admin</h1>
+    <div class="meta">
+      <span id="session-label">Not signed in</span>
+      <button type="button" class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">Light</button>
+      <button type="button" class="theme-toggle" id="logout-btn" onclick="logout()" style="display:none">Sign out</button>
+    </div>
+  </div>
+
+  <!-- login view -->
+  <div id="login-view" class="login-wrap" style="display:none">
+    <section class="card">
+      <div class="card-head"><span><span class="slash">//</span>&nbsp; Sign&nbsp;in</span><span class="tag">Admin</span></div>
+      <div class="card-body">
+        <form id="login-form">
+          <div class="field">
+            <label>Admin Password</label>
+            <input type="password" id="login-password" autocomplete="current-password" required autofocus />
+          </div>
+          <button type="submit" class="btn btn-primary" id="login-btn" style="width:100%">Sign in</button>
+          <div class="log" id="login-log"><span class="prefix">&gt;</span>Ready.</div>
+        </form>
+      </div>
+    </section>
+  </div>
+
+  <!-- list view -->
+  <div id="list-view" style="display:none">
+    <section class="card">
+      <div class="card-head"><span><span class="slash">//</span>&nbsp; Submissions</span><span class="tag" id="list-tag">Rows</span></div>
+      <div class="card-body">
+        <div class="toolbar">
+          <input type="text" id="search" placeholder="Search name or email..." />
+          <span class="count" id="count">—</span>
+          <button type="button" class="btn" onclick="loadList()">Refresh</button>
+        </div>
+        <div id="table-wrap" style="margin-top:16px">
+          <div class="loading">Loading...</div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- detail drawer -->
+  <div class="drawer-bg" id="drawer-bg" onclick="if(event.target.id==='drawer-bg')closeDrawer()">
+    <div class="drawer">
+      <div class="drawer-head">
+        <span id="drawer-title"><span class="slash" style="color:var(--muted)">//</span>&nbsp; Submission</span>
+        <button type="button" class="x" onclick="closeDrawer()">&times;</button>
+      </div>
+      <div class="drawer-body" id="drawer-body"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API = window.BACKEND_URL || 'http://localhost:8000';
+const TOKEN_KEY = 'admin_token';
+
+/* --- theme --- */
+function applyThemeLabel() {
+  const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = cur === 'light' ? 'Dark' : 'Light';
+}
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next = cur === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('theme', next); } catch(e) {}
+  applyThemeLabel();
+}
+applyThemeLabel();
+
+/* --- auth --- */
+function getToken() { try { return localStorage.getItem(TOKEN_KEY); } catch(e) { return null; } }
+function setToken(t) { try { localStorage.setItem(TOKEN_KEY, t); } catch(e) {} }
+function clearToken() { try { localStorage.removeItem(TOKEN_KEY); } catch(e) {} }
+
+function showLogin() {
+  document.getElementById('login-view').style.display = '';
+  document.getElementById('list-view').style.display = 'none';
+  document.getElementById('logout-btn').style.display = 'none';
+  document.getElementById('session-label').textContent = 'Not signed in';
+}
+function showList() {
+  document.getElementById('login-view').style.display = 'none';
+  document.getElementById('list-view').style.display = '';
+  document.getElementById('logout-btn').style.display = '';
+  document.getElementById('session-label').textContent = 'Signed in';
+  loadList();
+}
+function logout() {
+  clearToken();
+  showLogin();
+}
+
+function setLog(id, msg, kind) {
+  const el = document.getElementById(id);
+  el.className = 'log' + (kind ? ' ' + kind : '');
+  el.innerHTML = '<span class="prefix">&gt;</span>' + msg;
+}
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const pw = document.getElementById('login-password').value;
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  setLog('login-log', 'Authenticating...');
+  try {
+    const res = await fetch(API + '/admin/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({password: pw}),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'login failed');
+    setToken(data.token);
+    setLog('login-log', 'OK, loading...', 'ok');
+    showList();
+  } catch(err) {
+    setLog('login-log', err.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+/* --- list --- */
+let searchTimer = null;
+document.getElementById('search').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(loadList, 280);
+});
+
+async function loadList() {
+  const token = getToken();
+  if (!token) { showLogin(); return; }
+  const q = document.getElementById('search').value.trim();
+  const wrap = document.getElementById('table-wrap');
+  wrap.innerHTML = '<div class="loading">Loading...</div>';
+  try {
+    const url = new URL(API + '/admin/submissions');
+    if (q) url.searchParams.set('q', q);
+    const res = await fetch(url, { headers: {Authorization: 'Bearer ' + token} });
+    if (res.status === 401) { clearToken(); showLogin(); return; }
+    const data = await res.json();
+    document.getElementById('count').textContent = data.rows.length + ' of ' + data.total;
+    renderTable(data.rows);
+  } catch(err) {
+    wrap.innerHTML = '<div class="empty">Error: ' + err.message + '</div>';
+  }
+}
+
+function renderTable(rows) {
+  const wrap = document.getElementById('table-wrap');
+  if (!rows.length) {
+    wrap.innerHTML = '<div class="empty">No submissions yet.</div>';
+    return;
+  }
+  const fmt = iso => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return d.toISOString().slice(0, 16).replace('T', ' ');
+  };
+  const cells = rows.map(r => `
+    <tr onclick="openDrawer(${r.id})">
+      <td class="mono-id">#${r.id}</td>
+      <td>${esc(r.full_name)}</td>
+      <td>${esc(r.email)}</td>
+      <td>${esc(r.whatsapp || '')}</td>
+      <td>${esc((r.languages || []).join(', '))}</td>
+      <td>${r.consented && r.consented_terms ? '<span class="ok-dot">●</span>' : '<span class="bad-dot">●</span>'}</td>
+      <td class="mono-id">${fmt(r.created_at)}</td>
+    </tr>`).join('');
+  wrap.innerHTML = `
+    <table>
+      <thead><tr>
+        <th>ID</th><th>Name</th><th>Email</th><th>WhatsApp</th><th>Languages</th><th>Consent</th><th>Created</th>
+      </tr></thead>
+      <tbody>${cells}</tbody>
+    </table>`;
+}
+
+function esc(v) {
+  if (v === null || v === undefined) return '';
+  return String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* --- drawer --- */
+const FIELD_GROUPS = [
+  ['Identity',   ['id', 'created_at', 'full_name', 'whatsapp', 'email', 'alt_email', 'occupation', 'google_id']],
+  ['Socials',    ['telegram_id', 'discord_id', 'twitter_id', 'referred_by']],
+  ['Languages',  ['languages']],
+  ['About',      ['hardest_problem', 'health_notes']],
+  ['Address',    ['address_line1', 'address_line2', 'pincode', 'city', 'state']],
+  ['Payment',    ['upi_id', 'beneficiary_name', 'account_number', 'ifsc_code', 'bank_name', 'branch_name']],
+  ['PAN',        ['pan_number', 'pan_card_url']],
+  ['Intro Video',['intro_video_url']],
+  ['Consent',    ['consented', 'consented_terms']],
+];
+
+const LABEL = {
+  id: 'ID', created_at: 'Created', full_name: 'Name', alt_email: 'Alt Email',
+  google_id: 'Google ID', telegram_id: 'Telegram', discord_id: 'Discord', twitter_id: 'X / Twitter',
+  referred_by: 'Referred By', hardest_problem: 'Hardest Problem', health_notes: 'Health Notes',
+  address_line1: 'Line 1', address_line2: 'Line 2', upi_id: 'UPI',
+  beneficiary_name: 'Beneficiary', account_number: 'Account #',
+  ifsc_code: 'IFSC', bank_name: 'Bank', branch_name: 'Branch',
+  pan_number: 'PAN #', pan_card_url: 'PAN Card', intro_video_url: 'Video',
+  consented: 'KYC Consent', consented_terms: 'Terms Consent',
+};
+
+async function openDrawer(id) {
+  const token = getToken();
+  const bg = document.getElementById('drawer-bg');
+  const body = document.getElementById('drawer-body');
+  body.innerHTML = '<div class="loading">Loading...</div>';
+  bg.classList.add('open');
+  document.getElementById('drawer-title').innerHTML =
+    '<span class="slash" style="color:var(--muted)">//</span>&nbsp; Submission #' + id;
+  try {
+    const res = await fetch(API + '/admin/submissions/' + id, {
+      headers: {Authorization: 'Bearer ' + token}
+    });
+    if (res.status === 401) { clearToken(); closeDrawer(); showLogin(); return; }
+    const r = await res.json();
+    body.innerHTML = renderDetail(r);
+  } catch(err) {
+    body.innerHTML = '<div class="empty">Error: ' + err.message + '</div>';
+  }
+}
+function closeDrawer() { document.getElementById('drawer-bg').classList.remove('open'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+
+function renderDetail(r) {
+  const parts = [];
+  for (const [title, keys] of FIELD_GROUPS) {
+    parts.push(`<div class="group-label">${title}</div>`);
+    const rows = keys.map(k => {
+      const label = LABEL[k] || k.replace(/_/g, ' ');
+      let val = r[k];
+      let valHtml;
+      const isEmpty = val === null || val === undefined || val === '' || (Array.isArray(val) && val.length === 0);
+
+      if (k === 'pan_card_url' && val) {
+        const isImg = /\.(png|jpe?g|webp|gif)(\?|$)/i.test(val);
+        valHtml = `<div class="file-preview">
+          ${isImg ? `<img src="${esc(val)}" alt="PAN card" />` : `<a href="${esc(val)}" target="_blank" rel="noreferrer">Open file</a>`}
+          <a href="${esc(val)}" target="_blank" rel="noreferrer">Direct link</a>
+        </div>`;
+      } else if (k === 'intro_video_url' && val) {
+        valHtml = `<div class="file-preview">
+          <video src="${esc(val)}" controls preload="metadata"></video>
+          <a href="${esc(val)}" target="_blank" rel="noreferrer">Direct link</a>
+        </div>`;
+      } else if (Array.isArray(val)) {
+        valHtml = esc(val.join(', '));
+      } else if (typeof val === 'boolean') {
+        valHtml = val ? '<span class="ok-dot">● yes</span>' : '<span class="bad-dot">● no</span>';
+      } else {
+        valHtml = isEmpty ? '<span class="empty-val">—</span>' : esc(val);
+      }
+      const ddClass = isEmpty && !(k === 'consented' || k === 'consented_terms') ? ' class="empty-val"' : '';
+      return `<dl class="kv"><dt>${esc(label)}</dt><dd${ddClass}>${valHtml}</dd></dl>`;
+    }).join('');
+    parts.push(rows);
+  }
+  return parts.join('');
+}
+
+/* --- entry --- */
+if (getToken()) showList(); else showLogin();
+</script>
+</body>
+</html>

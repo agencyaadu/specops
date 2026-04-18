@@ -1,0 +1,28 @@
+# env & secrets — NEVER commit
+.env
+*.env.local
+*.env.production
+
+# python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.pytest_cache/
+
+# node (in case we ever add it)
+node_modules/
+
+# os / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# claude local settings
+.claude/settings.local.json
+
+# logs
+*.log
