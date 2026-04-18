@@ -7,6 +7,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+REQUIRED_ENV = [
+    "DATABASE_URL", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_BUCKET",
+    "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI",
+    "JWT_SECRET", "ENCRYPTION_KEY", "ADMIN_PASSWORD", "FRONTEND_URL",
+]
+_missing = [k for k in REQUIRED_ENV if not os.environ.get(k)]
+if _missing:
+    raise SystemExit(f"FATAL: missing required env vars: {', '.join(_missing)}")
+
 from routers import submissions, auth, admin
 from db import init_db
 
