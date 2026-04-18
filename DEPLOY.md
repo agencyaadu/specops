@@ -17,13 +17,13 @@ Two services to stand up, plus a few one-time wiring steps.
    - `ALLOWED_ORIGINS` — same as `FRONTEND_URL` (comma-separate if you have more)
 3. Deploy. First boot takes ~2–3 min (pip install). Confirm `GET /health` returns `{"status":"ok"}`.
 
-## 2 — Frontend to Netlify
+## 2 — Frontend to Vercel
 
-1. Edit `frontend/config.js` → replace `REPLACE-WITH-RENDER-URL.onrender.com` with your actual Render URL (no trailing slash).
+1. Edit `frontend/config.js` → replace `REPLACE-WITH-RENDER-URL.onrender.com` with your actual Render URL (no trailing slash). `config.js` is served with `Cache-Control: no-cache` so future edits take effect immediately.
 2. Commit & push.
-3. On https://app.netlify.com/ → **Add new site** → **Import from Git** → pick this repo. Netlify reads `netlify.toml` and serves `frontend/`.
-4. Deploy. You get a `<name>.netlify.app` URL.
-5. Go back to Render and set `FRONTEND_URL` and `ALLOWED_ORIGINS` to the final Netlify URL if they weren't already.
+3. On https://vercel.com/new → **Import Git Repository** → pick `Kawwshall/specops`. Vercel reads `vercel.json` and serves from `frontend/` — no build step needed (`framework: null`, `buildCommand: null`).
+4. Deploy. You get a `<name>.vercel.app` URL (plus preview URLs per-branch).
+5. Go back to Render and set `FRONTEND_URL` and `ALLOWED_ORIGINS` to the final Vercel URL (e.g. `https://specops.vercel.app`).
 
 ## 3 — Google OAuth
 
@@ -37,8 +37,8 @@ Save. No code change needed.
 
 ## 4 — Smoke test
 
-- Open `https://<netlify>/` → fill the form → submit → welcome screen shows → row appears at `https://<netlify>/admin.html`
-- Open `https://<netlify>/admin.html` → sign in with `ADMIN_PASSWORD` → rows list loads → click a row → plaintext PAN/account visible → files preview
+- Open `https://<vercel>/` → fill the form → submit → welcome screen shows → row appears at `https://<vercel>/admin.html`
+- Open `https://<vercel>/admin.html` → sign in with `ADMIN_PASSWORD` → rows list loads → click a row → plaintext PAN/account visible → files preview
 
 ## Notes
 
