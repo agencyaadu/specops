@@ -1,5 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request
 import asyncio
+import os
+import re
 import uuid
 
 from crypto import encrypt
@@ -16,8 +18,15 @@ def _check_size(data: bytes, max_mb: int, label: str):
     if len(data) > max_mb * 1024 * 1024:
         raise HTTPException(400, f"{label} exceeds {max_mb}MB limit")
 
-async def _store(file_bytes: bytes, prefix: str, filename: str, mime: str) -> str:
-    key = f"{prefix}/{uuid.uuid4()}_{filename}"
+def _safe_filename(name: str, fallback_ext: str) -> str:
+    # Supabase Storage keys must be ASCII; strip anything else.
+    stem, ext = os.path.splitext(name or "")
+    stem = re.sub(r"[^A-Za-z0-9._-]+", "-", stem).strip("-") or "file"
+    ext  = re.sub(r"[^A-Za-z0-9.]+", "", ext) or fallback_ext
+    return f"{stem[:64]}{ext}"
+
+async def _store(file_bytes: bytes, prefix: str, filename: str, mime: str, fallback_ext: str) -> str:
+    key = f"{prefix}/{uuid.uuid4()}_{_safe_filename(filename, fallback_ext)}"
     return await asyncio.to_thread(upload_to_storage, file_bytes, key, mime)
 
 @router.post("/")
@@ -87,7 +96,7 @@ async def submit(
     if mime not in ALLOWED_DOC_TYPES:
         raise HTTPException(400, "PAN card must be image or PDF")
     _check_size(pan_bytes, MAX_DOC_MB, "PAN card")
-    pan_url = await _store(pan_bytes, "pan", pan_card.filename, mime)
+    pan_url = await _store(pan_bytes, "pan", pan_card.filename, mime, ".bin")
 
     if not intro_video.filename:
         raise HTTPException(400, "intro video file is required")
@@ -96,7 +105,7 @@ async def submit(
     if mime not in ALLOWED_VIDEO_TYPE:
         raise HTTPException(400, "intro video must be mp4")
     _check_size(vid_bytes, MAX_VIDEO_MB, "intro video")
-    vid_url = await _store(vid_bytes, "videos", intro_video.filename, mime)
+    vid_url = await _store(vid_bytes, "videos", intro_video.filename, mime, ".mp4")
 
     db = request.app.state.db
 
