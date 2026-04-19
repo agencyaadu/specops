@@ -3,7 +3,6 @@ import asyncio
 import os
 import re
 
-from crypto import encrypt
 from appscript import submit as appscript_submit
 
 router = APIRouter()
@@ -88,9 +87,9 @@ async def submit(
         "address_line1": address_line1, "address_line2": address_line2,
         "pincode": pincode, "city": city, "state": state,
         "upi_id": upi_id, "beneficiary_name": beneficiary_name,
-        "account_number_encrypted": encrypt(account_number),
+        "account_number_encrypted": account_number,
         "ifsc_code": ifsc_code, "bank_name": bank_name, "branch_name": branch_name,
-        "pan_number_encrypted": encrypt(pan_number),
+        "pan_number_encrypted": pan_number,
         "consented": consented, "consented_terms": consented_terms,
         "video_url": video_url.strip(),
     }
