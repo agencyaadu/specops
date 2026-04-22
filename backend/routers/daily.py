@@ -64,12 +64,20 @@ async def submit_daily(
 
     if not isinstance(attendance, list) or len(attendance) == 0:
         raise HTTPException(400, "attendance must be a non-empty list")
-    if len(attendance) != len(photos):
-        raise HTTPException(400, f"attendance count ({len(attendance)}) != photo count ({len(photos)})")
 
-    # Pre-validate attendance entries + read photo bytes (fail fast before any DB writes).
+    # Photos are optional per-attendee. The client sends `has_photo: true` on
+    # entries that have a photo, and appends those photo files (in same order)
+    # to the `photos` multipart field. Photos-with-flag count must match.
+    expected_photos = sum(1 for p in attendance if p.get("has_photo"))
+    if expected_photos != len(photos):
+        raise HTTPException(
+            400, f"attendance expects {expected_photos} photos but got {len(photos)}",
+        )
+
+    # Pre-validate attendance entries (and read photo bytes where provided).
     prepared = []
     seen_pans = set()
+    photo_iter = iter(photos)
     for i, person in enumerate(attendance):
         name  = (person.get("full_name") or "").strip()
         phone = (person.get("phone") or "").strip()
@@ -77,6 +85,7 @@ async def submit_daily(
         person_role = (person.get("person_role") or "operator").strip().lower()
         b_lat = person.get("browser_lat")
         b_lng = person.get("browser_lng")
+        b_acc = person.get("browser_accuracy_m")
 
         if not name:
             raise HTTPException(400, f"attendance[{i}]: full_name required")
@@ -90,35 +99,42 @@ async def submit_daily(
             raise HTTPException(400, f"attendance[{i}]: duplicate PAN in submission")
         seen_pans.add(pan)
         if b_lat is None or b_lng is None:
-            raise HTTPException(400, f"attendance[{i}]: browser geolocation required")
+            raise HTTPException(400, f"attendance[{i}]: device location required")
         try:
             b_lat = float(b_lat); b_lng = float(b_lng)
+            b_acc = float(b_acc) if b_acc not in (None, "") else None
         except (TypeError, ValueError):
-            raise HTTPException(400, f"attendance[{i}]: invalid browser coords")
+            raise HTTPException(400, f"attendance[{i}]: invalid device coords")
 
-        photo = photos[i]
-        mime = (photo.content_type or "").lower()
-        if mime not in ALLOWED_PHOTO_MIMES:
-            raise HTTPException(400, f"attendance[{i}]: photo must be jpeg or heic")
-        data = await photo.read()
-        if len(data) > MAX_PHOTO_MB * 1024 * 1024:
-            raise HTTPException(400, f"attendance[{i}]: photo exceeds {MAX_PHOTO_MB}MB")
-
-        gps = extract_gps(data)
-        if not gps:
-            raise HTTPException(400, f"attendance[{i}]: photo must contain GPS EXIF")
-        lat, lng = gps
-        dist = haversine_m(lat, lng, b_lat, b_lng)
-        verified = dist <= GEO_THRESHOLD_M
-
-        prepared.append({
+        entry = {
             "name": name, "phone": phone, "pan": pan,
             "person_role": person_role,
-            "b_lat": b_lat, "b_lng": b_lng,
-            "exif_lat": lat, "exif_lng": lng,
-            "distance_m": dist, "verified": verified,
-            "photo_bytes": data, "photo_mime": mime,
-        })
+            "b_lat": b_lat, "b_lng": b_lng, "b_acc": b_acc,
+            "exif_lat": None, "exif_lng": None,
+            "distance_m": None, "verified": True,
+            "photo_bytes": None, "photo_mime": None,
+        }
+
+        if person.get("has_photo"):
+            photo = next(photo_iter)
+            mime = (photo.content_type or "").lower()
+            if mime not in ALLOWED_PHOTO_MIMES:
+                raise HTTPException(400, f"attendance[{i}]: photo must be jpeg or heic")
+            data = await photo.read()
+            if len(data) > MAX_PHOTO_MB * 1024 * 1024:
+                raise HTTPException(400, f"attendance[{i}]: photo exceeds {MAX_PHOTO_MB}MB")
+
+            gps = extract_gps(data)
+            if gps:
+                entry["exif_lat"], entry["exif_lng"] = gps
+                entry["distance_m"] = haversine_m(gps[0], gps[1], b_lat, b_lng)
+                entry["verified"]   = entry["distance_m"] <= GEO_THRESHOLD_M
+            # No EXIF GPS -> accept the photo but don't contradict device location;
+            # verified stays True because device location is authoritative.
+            entry["photo_bytes"] = data
+            entry["photo_mime"]  = mime
+
+        prepared.append(entry)
 
     db = request.app.state.db
     report_date = today_ist()
@@ -209,8 +225,10 @@ async def submit_daily(
 
             for p in prepared:
                 pan_h = hash_pan(p["pan"])
-                key = f"{op_id}/{report_date.isoformat()}/{pan_h[:12]}{_ext_for_mime(p['photo_mime'])}"
-                upload_attendance_photo(p["photo_bytes"], key, p["photo_mime"])
+                key = None
+                if p["photo_bytes"] is not None:
+                    key = f"{op_id}/{report_date.isoformat()}/{pan_h[:12]}{_ext_for_mime(p['photo_mime'])}"
+                    upload_attendance_photo(p["photo_bytes"], key, p["photo_mime"])
                 try:
                     await conn.execute(
                         """
@@ -220,7 +238,7 @@ async def submit_daily(
                             pan_number_enc, pan_number_hash,
                             photo_key,
                             photo_exif_lat, photo_exif_lng,
-                            browser_lat, browser_lng,
+                            browser_lat, browser_lng, browser_accuracy_m,
                             distance_m, verified
                         ) VALUES (
                             $1, $2,
@@ -228,8 +246,8 @@ async def submit_daily(
                             $6, $7,
                             $8,
                             $9, $10,
-                            $11, $12,
-                            $13, $14
+                            $11, $12, $13,
+                            $14, $15
                         )
                         """,
                         op_id, report_date,
@@ -237,7 +255,7 @@ async def submit_daily(
                         encrypt(p["pan"]), pan_h,
                         key,
                         p["exif_lat"], p["exif_lng"],
-                        p["b_lat"], p["b_lng"],
+                        p["b_lat"], p["b_lng"], p["b_acc"],
                         p["distance_m"], p["verified"],
                     )
                 except Exception as e:

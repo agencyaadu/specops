@@ -301,65 +301,108 @@
         </div>
       </div>
       <div class="field">
-        <label>Photo (jpeg / heic, geotagged)</label>
+        <label>Device location (required)</label>
+        <div class="loc-row" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <span class="badge loc-badge">capturing…</span>
+          <button type="button" class="btn tiny loc-retry" style="display:none">Retry</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Photo (optional, jpeg / heic)</label>
         <label class="photo-box">
-          <span class="photo-label">Tap to capture or upload</span>
+          <span class="photo-label">Tap to capture or upload (optional)</span>
           <input type="file" class="p-photo" accept="image/jpeg,image/heic,image/heif" capture="environment" />
         </label>
-        <div class="badge" style="display:none"></div>
+        <div class="badge photo-badge" style="display:none"></div>
       </div>
     `;
     wrap.querySelector(".rm").onclick = () => wrap.remove();
     wrap.querySelector(".p-photo").onchange = (e) => onPhotoPick(wrap, e.target.files[0]);
+    wrap.querySelector(".loc-retry").onclick = () => captureLocation(wrap);
     document.getElementById("people").appendChild(wrap);
+    captureLocation(wrap);
   }
   document.getElementById("add-person").onclick = addPerson;
 
-  async function onPhotoPick(personEl, file) {
-    const badge = personEl.querySelector(".badge");
-    const label = personEl.querySelector(".photo-label");
-    if (!file) return;
-    label.textContent = file.name + " · " + (file.size / 1024 / 1024).toFixed(2) + " MB";
-    badge.style.display = "inline-block";
-    badge.className = "badge";
-    badge.textContent = "checking geo…";
-
-    // 1. EXIF GPS
-    let gps = null;
-    try { gps = await exifr.gps(file); } catch (_) {}
-    if (!gps || gps.latitude == null) {
-      badge.classList.add("err"); badge.textContent = "no GPS in photo";
-      personEl.dataset.verified = "no-gps";
-      return;
-    }
-    personEl.dataset.exifLat = gps.latitude;
-    personEl.dataset.exifLng = gps.longitude;
-
-    // 2. Browser geo
-    let coords;
+  async function captureLocation(personEl) {
+    const badge = personEl.querySelector(".loc-badge");
+    const retry = personEl.querySelector(".loc-retry");
+    badge.className = "badge loc-badge";
+    badge.textContent = "capturing…";
+    retry.style.display = "none";
     try {
-      coords = await new Promise((res, rej) => {
+      const coords = await new Promise((res, rej) => {
         navigator.geolocation.getCurrentPosition(
           p => res(p.coords),
           e => rej(e),
           { enableHighAccuracy: true, timeout: 15000 }
         );
       });
+      personEl.dataset.brLat = coords.latitude;
+      personEl.dataset.brLng = coords.longitude;
+      personEl.dataset.brAcc = coords.accuracy || "";
+      badge.classList.add("ok");
+      const acc = coords.accuracy ? ` (±${Math.round(coords.accuracy)}m)` : "";
+      badge.textContent = `✓ ${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}${acc}`;
+      // If a photo was already picked, re-check distance.
+      if (personEl.dataset.exifLat) updateDistanceBadge(personEl);
     } catch (e) {
-      badge.classList.add("err"); badge.textContent = "geolocation denied";
+      badge.classList.add("err");
+      badge.textContent = e && e.code === 1 ? "permission denied" : "location unavailable";
+      retry.style.display = "inline-block";
+      delete personEl.dataset.brLat;
+      delete personEl.dataset.brLng;
+    }
+  }
+
+  async function onPhotoPick(personEl, file) {
+    const badge = personEl.querySelector(".photo-badge");
+    const label = personEl.querySelector(".photo-label");
+    if (!file) {
+      // user cleared the file; reset state
+      badge.style.display = "none";
+      label.textContent = "Tap to capture or upload (optional)";
+      delete personEl.dataset.exifLat;
+      delete personEl.dataset.exifLng;
+      delete personEl.dataset.dist;
       return;
     }
-    personEl.dataset.brLat = coords.latitude;
-    personEl.dataset.brLng = coords.longitude;
+    label.textContent = file.name + " · " + (file.size / 1024 / 1024).toFixed(2) + " MB";
+    badge.style.display = "inline-block";
+    badge.className = "badge photo-badge";
+    badge.textContent = "reading EXIF…";
 
-    const d = haversineM(gps.latitude, gps.longitude, coords.latitude, coords.longitude);
+    let gps = null;
+    try { gps = await exifr.gps(file); } catch (_) {}
+    if (!gps || gps.latitude == null) {
+      badge.classList.add("warn");
+      badge.textContent = "photo attached · no GPS in EXIF";
+      delete personEl.dataset.exifLat;
+      delete personEl.dataset.exifLng;
+      delete personEl.dataset.dist;
+      return;
+    }
+    personEl.dataset.exifLat = gps.latitude;
+    personEl.dataset.exifLng = gps.longitude;
+    updateDistanceBadge(personEl);
+  }
+
+  function updateDistanceBadge(personEl) {
+    const badge = personEl.querySelector(".photo-badge");
+    if (!personEl.dataset.exifLat || !personEl.dataset.brLat) return;
+    const d = haversineM(
+      parseFloat(personEl.dataset.exifLat), parseFloat(personEl.dataset.exifLng),
+      parseFloat(personEl.dataset.brLat),   parseFloat(personEl.dataset.brLng),
+    );
     personEl.dataset.dist = d.toFixed(1);
+    badge.className = "badge photo-badge";
+    badge.style.display = "inline-block";
     if (d <= 200) {
       badge.classList.add("ok");
-      badge.textContent = "✓ " + Math.round(d) + " m away";
+      badge.textContent = `✓ photo matches location (${Math.round(d)}m)`;
     } else {
       badge.classList.add("warn");
-      badge.textContent = "⚠ " + Math.round(d) + " m away (over 200m)";
+      badge.textContent = `⚠ photo is ${Math.round(d)}m from device (over 200m)`;
     }
   }
 
@@ -433,19 +476,21 @@
       const pan   = p.querySelector(".p-pan").value.trim().toUpperCase();
       const personRole = p.querySelector(".p-role").value;
       const fileEl = p.querySelector(".p-photo");
-      const file  = fileEl.files[0];
-      if (!name || !phone || !pan || !file) { alert(`Person ${i+1}: complete all fields + photo.`); return null; }
+      const file  = fileEl.files[0] || null;
+      if (!name || !phone || !pan) { alert(`Person ${i+1}: fill name, phone, and PAN.`); return null; }
       if (!/^[6-9]\d{9}$/.test(phone)) { alert(`Person ${i+1}: invalid phone`); return null; }
       if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan)) { alert(`Person ${i+1}: invalid PAN`); return null; }
       if (!["chief","captain","operator"].includes(personRole)) { alert(`Person ${i+1}: invalid role`); return null; }
-      if (!p.dataset.brLat || !p.dataset.exifLat) { alert(`Person ${i+1}: re-attach photo so geolocation can run.`); return null; }
+      if (!p.dataset.brLat) { alert(`Person ${i+1}: device location missing. Tap Retry on the location row.`); return null; }
       attendance.push({
         full_name: name, phone, pan,
         person_role: personRole,
         browser_lat: parseFloat(p.dataset.brLat),
         browser_lng: parseFloat(p.dataset.brLng),
+        browser_accuracy_m: p.dataset.brAcc ? parseFloat(p.dataset.brAcc) : null,
+        has_photo: !!file,
       });
-      photos.push(file);
+      if (file) photos.push(file);
     }
     return { json: { daily, events, attendance }, photos };
   }

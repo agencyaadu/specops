@@ -130,16 +130,21 @@ CREATE TABLE IF NOT EXISTS attendance (
     person_role       TEXT NOT NULL CHECK (person_role IN ('chief','captain','operator')) ,
     pan_number_enc    TEXT NOT NULL ,
     pan_number_hash   TEXT NOT NULL ,
-    photo_key         TEXT NOT NULL ,
+    photo_key         TEXT ,
     photo_exif_lat    NUMERIC(9, 6) ,
     photo_exif_lng    NUMERIC(9, 6) ,
-    browser_lat       NUMERIC(9, 6) ,
-    browser_lng       NUMERIC(9, 6) ,
+    browser_lat       NUMERIC(9, 6) NOT NULL ,
+    browser_lng       NUMERIC(9, 6) NOT NULL ,
+    browser_accuracy_m NUMERIC ,
     distance_m        NUMERIC ,
-    verified          BOOLEAN DEFAULT FALSE ,
+    verified          BOOLEAN DEFAULT TRUE ,
     submitted_at      TIMESTAMPTZ DEFAULT NOW() ,
     UNIQUE (op_id, report_date, pan_number_hash)
 );
+ALTER TABLE attendance ALTER COLUMN photo_key DROP NOT NULL;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS browser_accuracy_m NUMERIC;
+ALTER TABLE attendance ALTER COLUMN browser_lat SET NOT NULL;
+ALTER TABLE attendance ALTER COLUMN browser_lng SET NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance(report_date);
 """
 
