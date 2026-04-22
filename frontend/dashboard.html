@@ -182,13 +182,11 @@
     }
     whoEl.textContent = `${user.email} · ${user.role}`;
 
-    // role-specific nav link back to admin
-    nav.innerHTML = "";
-    if (user.role === "general") {
-      nav.innerHTML = `<a href="/ops-admin.html">← Ops Admin</a>`;
-    } else {
-      nav.innerHTML = `<a href="/chief-admin.html">← Chief Admin</a>`;
-    }
+    // role-specific nav: link to analytics + back to admin
+    nav.innerHTML = `
+      <a href="/analytics.html">Analytics</a>
+      <a href="${user.role === 'general' ? '/ops-admin.html' : '/chief-admin.html'}">← Admin</a>
+    `;
 
     picker.value = todayIsoIST();
     appEl.classList.remove("hidden");

@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Analytics — SpecOps</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" />
+<style>
+  *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#000; --surface:#0a0a0a; --border:rgba(255,255,255,0.14); --border-md:rgba(255,255,255,0.28);
+    --text:#f2f2f2; --muted:#9a9a9a; --hint:#5a5a5a; --accent:#fff; --on-accent:#000;
+    --green:#3ecf8e; --green-soft:rgba(62,207,142,0.12);
+    --amber:#f5a524; --amber-soft:rgba(245,165,36,0.10);
+    --red:#f87171;   --red-soft:rgba(248,113,113,0.08);
+    --blue:#60a5fa;  --blue-soft:rgba(96,165,250,0.12);
+    --mono:'JetBrains Mono','Courier New',Courier,monospace;
+  }
+  html,body { background:var(--bg); }
+  body { color:var(--text); font-family:var(--mono); font-size:13px; line-height:1.55; min-height:100vh; }
+  .page { max-width:1200px; margin:0 auto; padding:2.2rem 1.4rem 5rem; }
+  .topbar { display:flex; justify-content:space-between; align-items:center; padding-bottom:1rem; border-bottom:1px solid var(--border); margin-bottom:1.6rem; flex-wrap:wrap; gap:10px; }
+  .topbar h1 { font-size:12px; font-weight:500; letter-spacing:.18em; text-transform:uppercase; }
+  .topbar .nav { display:flex; gap:12px; align-items:center; }
+  .topbar .nav a { color:var(--muted); text-decoration:none; font-size:10px; letter-spacing:.16em; text-transform:uppercase; border-bottom:1px solid transparent; padding-bottom:2px; }
+  .topbar .nav a:hover { color:var(--text); border-bottom-color:var(--border-md); }
+  .topbar .meta { font-size:10px; letter-spacing:.14em; color:var(--hint); text-transform:uppercase; display:flex; gap:12px; align-items:center; }
+  .tabs { display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:1.2rem; }
+  .tab { padding:10px 20px; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; }
+  .tab.active { color:var(--text); border-bottom-color:var(--accent); }
+  .tab:hover { color:var(--text); }
+  .controls { display:flex; align-items:center; gap:10px; margin-bottom:1rem; flex-wrap:wrap; }
+  .controls label { font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--hint); }
+  input[type=date] { background:transparent; border:1px solid var(--border); color:var(--text); font-family:var(--mono); font-size:12px; padding:6px 10px; color-scheme:dark; }
+  .btn { border:1px solid var(--border-md); background:transparent; color:var(--text); padding:6px 12px; font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; cursor:pointer; transition:background .12s, border-color .12s; }
+  .btn:hover { border-color:var(--accent); background:var(--surface); }
+  .btn.tiny { padding:3px 8px; font-size:9px; }
+  .summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:1.4rem; }
+  .kpi { border:1px solid var(--border); padding:14px 16px; }
+  .kpi .label { font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--hint); }
+  .kpi .value { font-size:22px; font-weight:500; margin-top:6px; letter-spacing:-0.01em; }
+  .kpi .sub   { font-size:10px; color:var(--muted); margin-top:4px; letter-spacing:.14em; text-transform:uppercase; }
+  .card { border:1px solid var(--border); margin-bottom:1rem; }
+  .card-head { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border); font-size:10px; letter-spacing:.18em; text-transform:uppercase; }
+  .card-head .slash { color:var(--muted); }
+  .card-body { padding:0; overflow-x:auto; }
+
+  /* chart area */
+  .chart-row { padding:18px 16px; display:grid; grid-template-columns:140px 1fr 90px; gap:10px 14px; align-items:center; font-size:12px; border-bottom:1px solid var(--border); }
+  .chart-row:last-child { border-bottom:0; }
+  .chart-row .label { color:var(--muted); }
+  .bar-track { height:8px; background:var(--surface); border:1px solid var(--border); position:relative; }
+  .bar-fill  { height:100%; background:var(--blue); background:var(--green); }
+  .chart-row.warn .bar-fill { background:var(--amber); }
+  .chart-row .val   { font-size:11px; color:var(--text); text-align:right; }
+  .metric-select { display:flex; gap:6px; align-items:center; }
+  .metric-select select { background:transparent; border:1px solid var(--border); color:var(--text); font-family:var(--mono); font-size:11px; padding:4px 8px; color-scheme:dark; }
+
+  /* table */
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th, td { padding:10px 8px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap; }
+  th { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:500; }
+  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .pill { display:inline-block; font-size:10px; letter-spacing:.12em; text-transform:uppercase; padding:2px 7px; border:1px solid var(--border); }
+  .pill.ok { border-color:var(--green); color:var(--green); background:var(--green-soft); }
+  .pill.warn { border-color:var(--amber); color:var(--amber); background:var(--amber-soft); }
+  .pill.mute { color:var(--hint); }
+  .empty { padding:20px; text-align:center; color:var(--hint); font-size:11px; letter-spacing:.14em; text-transform:uppercase; }
+  .banner { padding:12px 14px; border:1px solid var(--border); margin-bottom:1rem; font-size:12px; }
+  .banner.err { border-color:var(--red); color:var(--red); }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="topbar">
+    <h1>// Analytics</h1>
+    <div class="nav" id="nav"></div>
+    <div class="meta">
+      <span id="who">—</span>
+      <button class="btn tiny" id="signout">Sign out</button>
+    </div>
+  </div>
+
+  <div id="status-banner" class="hidden"></div>
+
+  <div id="app" class="hidden">
+    <div class="tabs">
+      <div class="tab active" data-group="date">Over Time</div>
+      <div class="tab" data-group="location">By Location</div>
+      <div class="tab" data-group="shift">By Shift</div>
+    </div>
+
+    <div class="controls">
+      <label>From</label><input type="date" id="d-from" />
+      <label>To</label><input type="date" id="d-to" />
+      <button class="btn tiny" id="apply">Apply</button>
+      <button class="btn tiny" id="preset-7">Last 7</button>
+      <button class="btn tiny" id="preset-30">Last 30</button>
+      <button class="btn tiny" id="preset-today">Today</button>
+      <div style="flex:1"></div>
+      <div class="metric-select">
+        <label>Metric</label>
+        <select id="metric">
+          <option value="deployed_rate" selected>Deployed rate</option>
+          <option value="reporting_rate">Reporting rate</option>
+          <option value="verified_rate">Verified %</option>
+          <option value="good_hours_ratio">Good hours ratio</option>
+          <option value="sd_utilization">SD card utilization</option>
+          <option value="attendance_total">Attendance total</option>
+          <option value="reports_submitted">Reports submitted</option>
+          <option value="devices_deployed">Devices deployed</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="summary" id="summary"></div>
+
+    <div class="card">
+      <div class="card-head"><span><span class="slash">//</span>&nbsp; Breakdown</span><span id="rows-count" class="pill mute">0 rows</span></div>
+      <div id="chart-host" class="card-body"><div class="empty">loading…</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><span><span class="slash">//</span>&nbsp; Raw</span></div>
+      <div class="card-body" id="table-host"><div class="empty">loading…</div></div>
+    </div>
+  </div>
+</div>
+
+<script src="/config.js"></script>
+<script>
+(function () {
+  const API     = window.BACKEND_URL;
+  const TOKEN_K = "spec_token";
+  const whoEl   = document.getElementById("who");
+  const nav     = document.getElementById("nav");
+  const banner  = document.getElementById("status-banner");
+  const appEl   = document.getElementById("app");
+  const dFrom   = document.getElementById("d-from");
+  const dTo     = document.getElementById("d-to");
+  const metricSel = document.getElementById("metric");
+
+  (function captureToken() {
+    const p = new URLSearchParams(location.search);
+    const t = p.get("token");
+    if (t) {
+      localStorage.setItem(TOKEN_K, t);
+      p.delete("token");
+      const qs = p.toString();
+      history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
+    }
+  })();
+
+  function token() { return localStorage.getItem(TOKEN_K) || ""; }
+  function authHdr() { return { Authorization: "Bearer " + token() }; }
+  function redirectToLogin() {
+    location.href = API + "/auth/google?next=" + encodeURIComponent(location.pathname);
+  }
+  function showBanner(cls, msg) {
+    banner.className = "banner " + cls;
+    banner.textContent = msg;
+    banner.classList.remove("hidden");
+  }
+
+  document.getElementById("signout").onclick = function () {
+    localStorage.removeItem(TOKEN_K);
+    location.reload();
+  };
+
+  function todayIsoIST() {
+    return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  }
+  function daysAgoIsoIST(n) {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  }
+
+  let currentGroup = "date";
+
+  async function bootstrap() {
+    if (!token()) return redirectToLogin();
+    let res;
+    try { res = await fetch(API + "/auth/verify?token=" + encodeURIComponent(token())); }
+    catch (e) { return showBanner("err", "Network error: " + e.message); }
+    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
+    if (!res.ok) return showBanner("err", "Auth check failed: " + res.status);
+    const { user } = await res.json();
+    if (!["general","chief"].includes(user.role)) {
+      return showBanner("err", `Signed in as ${user.email} (role: ${user.role || "none"}). Only generals and chiefs can see analytics.`);
+    }
+    whoEl.textContent = `${user.email} · ${user.role}`;
+    nav.innerHTML = `
+      <a href="/dashboard.html">Dashboard</a>
+      <a href="${user.role === 'general' ? '/ops-admin.html' : '/chief-admin.html'}">← Admin</a>
+    `;
+
+    dTo.value   = todayIsoIST();
+    dFrom.value = daysAgoIsoIST(6);
+    appEl.classList.remove("hidden");
+    load();
+  }
+
+  document.querySelectorAll(".tab").forEach(t => {
+    t.onclick = () => {
+      document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+      t.classList.add("active");
+      currentGroup = t.dataset.group;
+      load();
+    };
+  });
+  document.getElementById("apply").onclick = load;
+  document.getElementById("preset-7").onclick = () => { dTo.value = todayIsoIST(); dFrom.value = daysAgoIsoIST(6); load(); };
+  document.getElementById("preset-30").onclick = () => { dTo.value = todayIsoIST(); dFrom.value = daysAgoIsoIST(29); load(); };
+  document.getElementById("preset-today").onclick = () => { const t = todayIsoIST(); dTo.value = t; dFrom.value = t; load(); };
+  metricSel.onchange = renderCurrent;
+
+  let lastData = null;
+
+  async function load() {
+    const qs = new URLSearchParams({ from: dFrom.value, to: dTo.value, group: currentGroup }).toString();
+    document.getElementById("chart-host").innerHTML = `<div class="empty">loading…</div>`;
+    document.getElementById("table-host").innerHTML = "";
+    document.getElementById("summary").innerHTML = "";
+    const res = await fetch(API + "/api/analytics?" + qs, { headers: authHdr() });
+    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
+    if (!res.ok) { document.getElementById("chart-host").innerHTML = `<div class="banner err">Failed: ${res.status}</div>`; return; }
+    lastData = await res.json();
+    renderCurrent();
+  }
+
+  function renderCurrent() {
+    if (!lastData) return;
+    renderSummary(lastData.overall);
+    renderChart(lastData.rows, metricSel.value);
+    renderTable(lastData.rows);
+  }
+
+  function fmtPct(v) { return v == null ? "—" : (v * 100).toFixed(1) + "%"; }
+  function fmtNum(v) { return v == null ? "—" : (typeof v === "number" && v % 1 !== 0) ? v.toFixed(1) : String(v); }
+
+  function renderSummary(k) {
+    const host = document.getElementById("summary");
+    const cards = [
+      { label: "Deployed rate",    value: fmtPct(k.deployed_rate),   sub: `${k.devices_deployed}/${k.devices_available} dev` },
+      { label: "Reporting rate",   value: fmtPct(k.reporting_rate),  sub: `${k.reports_submitted} reports / ${k.active_ops} active-days` },
+      { label: "Verified att %",   value: fmtPct(k.verified_rate),   sub: `${k.attendance_verified}/${k.attendance_total} verified` },
+      { label: "Good hours",       value: k.good_hours_actual == null ? "—" : fmtNum(k.good_hours_actual), sub: k.good_hours_projected ? `of ${fmtNum(k.good_hours_projected)} projected` : "" },
+      { label: "SD utilization",   value: fmtPct(k.sd_utilization),  sub: `${fmtNum(k.sd_used)} used / ${fmtNum(k.sd_left)} left` },
+    ];
+    host.innerHTML = cards.map(c => `
+      <div class="kpi">
+        <div class="label">${esc(c.label)}</div>
+        <div class="value">${esc(c.value)}</div>
+        <div class="sub">${esc(c.sub || "")}</div>
+      </div>
+    `).join("");
+  }
+
+  function isPct(metric) {
+    return ["deployed_rate","reporting_rate","verified_rate","good_hours_ratio","sd_utilization"].includes(metric);
+  }
+
+  function formatMetric(metric, v) {
+    if (v == null) return "—";
+    if (isPct(metric)) return (v * 100).toFixed(1) + "%";
+    return (typeof v === "number" && v % 1 !== 0) ? v.toFixed(1) : String(v);
+  }
+
+  function renderChart(rows, metric) {
+    const host = document.getElementById("chart-host");
+    document.getElementById("rows-count").textContent = `${rows.length} ${currentGroup === 'date' ? 'days' : currentGroup + 's'}`;
+    if (rows.length === 0) { host.innerHTML = `<div class="empty">No rows for this range.</div>`; return; }
+
+    const values = rows.map(r => r.kpis[metric]).map(v => v == null ? 0 : v);
+    const maxV = Math.max(1, ...values);
+    host.innerHTML = rows.map((r, i) => {
+      const v = r.kpis[metric];
+      const pct = v == null ? 0 : (v / maxV) * 100;
+      const cls = (isPct(metric) && v != null && v < 0.5) ? "warn" : "";
+      return `
+        <div class="chart-row ${cls}">
+          <div class="label">${esc(r.key || "—")}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct.toFixed(1)}%"></div></div>
+          <div class="val">${esc(formatMetric(metric, v))}</div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function renderTable(rows) {
+    const host = document.getElementById("table-host");
+    if (rows.length === 0) { host.innerHTML = `<div class="empty">No rows.</div>`; return; }
+    host.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>${currentGroup === 'date' ? 'Date' : currentGroup[0].toUpperCase()+currentGroup.slice(1)}</th>
+            <th class="num">Reports</th>
+            <th class="num">Deployed / Avail</th>
+            <th class="num">Deployed %</th>
+            <th class="num">Good hrs A/P</th>
+            <th class="num">SD used</th>
+            <th class="num">Att total</th>
+            <th class="num">Att verified</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => {
+            const k = r.kpis;
+            return `
+              <tr>
+                <td>${esc(r.key)}</td>
+                <td class="num">${k.reports_submitted}/${k.active_ops}</td>
+                <td class="num">${fmtNum(k.devices_deployed)} / ${fmtNum(k.devices_available)}</td>
+                <td class="num">${fmtPct(k.deployed_rate)}</td>
+                <td class="num">${fmtNum(k.good_hours_actual)} / ${fmtNum(k.good_hours_projected)}</td>
+                <td class="num">${fmtNum(k.sd_used)}</td>
+                <td class="num">${k.attendance_total}</td>
+                <td class="num">${k.attendance_verified}</td>
+              </tr>
+            `;
+          }).join("")}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function esc(v) {
+    if (v === null || v === undefined) return "";
+    return String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  bootstrap();
+})();
+</script>
+</body>
+</html>

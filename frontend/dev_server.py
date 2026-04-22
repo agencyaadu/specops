@@ -19,10 +19,11 @@ REWRITES = [
     (re.compile(r"^/ops/chief/?$"),    "/chief-admin.html"),
     (re.compile(r"^/ops/captain/?$"),  "/captain.html"),
     (re.compile(r"^/ops/dashboard/?$"),"/dashboard.html"),
+    (re.compile(r"^/ops/analytics/?$"),"/analytics.html"),
 ]
 
 # Clean URL aliases (cleanUrls:true on Vercel) — let /onboard serve /onboard.html, etc.
-CLEAN_URL_CANDIDATES = ("onboard", "admin", "r", "ops", "ops-admin", "chief-admin", "captain", "dashboard")
+CLEAN_URL_CANDIDATES = ("onboard", "admin", "r", "ops", "ops-admin", "chief-admin", "captain", "dashboard", "analytics")
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
