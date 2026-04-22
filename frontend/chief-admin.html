@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Chief Admin — SpecOps</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" />
+<style>
+  *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#000; --surface:#0a0a0a; --border:rgba(255,255,255,0.14); --border-md:rgba(255,255,255,0.28);
+    --text:#f2f2f2; --muted:#9a9a9a; --hint:#5a5a5a; --accent:#fff; --on-accent:#000;
+    --green:#3ecf8e; --green-soft:rgba(62,207,142,0.10); --red:#f87171; --amber:#f5a524;
+    --mono:'JetBrains Mono','Courier New',Courier,monospace;
+  }
+  html,body { background:var(--bg); }
+  body { color:var(--text); font-family:var(--mono); font-size:13px; line-height:1.55; min-height:100vh; }
+  .page { max-width:1100px; margin:0 auto; padding:2.2rem 1.4rem 5rem; }
+  .topbar { display:flex; justify-content:space-between; align-items:center; padding-bottom:1rem; border-bottom:1px solid var(--border); margin-bottom:1.6rem; }
+  .topbar h1 { font-size:12px; font-weight:500; letter-spacing:.18em; text-transform:uppercase; }
+  .topbar .meta { font-size:10px; letter-spacing:.14em; color:var(--hint); text-transform:uppercase; display:flex; gap:14px; align-items:center; }
+  .card { border:1px solid var(--border); margin-bottom:1rem; }
+  .card-head { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border); font-size:10px; letter-spacing:.18em; text-transform:uppercase; }
+  .card-head .slash { color:var(--muted); }
+  .card-body { padding:16px; }
+  .op-block { border:1px solid var(--border); margin-bottom:14px; }
+  .op-block .op-head { display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid var(--border); cursor:pointer; }
+  .op-block .op-title { font-size:12px; letter-spacing:.02em; }
+  .op-block .op-title code { color:var(--muted); font-size:11px; }
+  .op-block .op-body { padding:16px; border-top:1px dashed var(--border); display:none; }
+  .op-block.open .op-body { display:block; }
+  .pill { display:inline-block; font-size:10px; letter-spacing:.14em; text-transform:uppercase; padding:3px 8px; border:1px solid var(--border); }
+  .pill.ok { border-color:var(--green); color:var(--green); background:var(--green-soft); }
+  .pill.off { border-color:var(--red); color:var(--red); }
+  .pill.mute { color:var(--hint); }
+  .btn {
+    border:1px solid var(--border-md); background:transparent; color:var(--text);
+    padding:8px 14px; font-family:var(--mono); font-size:10px; letter-spacing:.16em;
+    text-transform:uppercase; cursor:pointer; transition:background .12s, border-color .12s;
+  }
+  .btn:hover { border-color:var(--accent); background:var(--surface); }
+  .btn.primary { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  .btn.danger { color:var(--red); border-color:var(--red); }
+  .btn.tiny { padding:4px 8px; font-size:9px; }
+  input, select, textarea {
+    width:100%; background:transparent; border:none; border-bottom:1px solid var(--border);
+    color:var(--text); font-family:var(--mono); font-size:13px; padding:8px 2px; outline:none;
+  }
+  input:focus, select:focus { border-bottom-color:var(--accent); }
+  .field { margin-bottom:.9rem; }
+  label { display:block; font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+  .row4 { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  @media (max-width:640px) { .row2,.row3,.row4 { grid-template-columns:1fr; } }
+  .sub-label { font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--hint); margin:1rem 0 .6rem; padding-bottom:6px; border-bottom:1px solid var(--border); }
+  .banner { padding:12px 14px; border:1px solid var(--border); margin-bottom:1rem; font-size:12px; }
+  .banner.err { border-color:var(--red); color:var(--red); }
+  .banner.ok { border-color:var(--green); color:var(--green); background:var(--green-soft); }
+  .hidden { display:none; }
+  .inline-actions { display:flex; gap:6px; flex-wrap:wrap; }
+  .empty { padding:20px; text-align:center; color:var(--hint); font-size:11px; letter-spacing:.14em; text-transform:uppercase; }
+  .form-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:1rem; }
+  .captain-row { display:grid; grid-template-columns:1fr 110px 90px; gap:10px; align-items:center; font-size:12px; margin-bottom:6px; }
+  .captain-form { display:grid; grid-template-columns:1fr 90px; gap:10px; align-items:end; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); }
+  .url-line { font-size:11px; color:var(--muted); word-break:break-all; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="topbar">
+    <h1>// Chief Admin</h1>
+    <div class="meta">
+      <span id="who">—</span>
+      <button class="btn tiny" id="signout">Sign out</button>
+    </div>
+  </div>
+
+  <div id="status-banner" class="hidden"></div>
+
+  <div id="app" class="hidden">
+    <div class="card hidden" id="create-wrap">
+      <div class="card-head">
+        <span><span class="slash">//</span>&nbsp; Create New Op</span>
+        <button class="btn tiny" id="cancel-new">Close</button>
+      </div>
+      <div class="card-body">
+        <div class="sub-label">Identity (factory + shift form the permanent op_id)</div>
+        <div class="row2">
+          <div class="field"><label>Factory name *</label><input type="text" id="f-factory" /></div>
+          <div class="field"><label>Shift *</label><input type="text" id="f-shift" /></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>Location</label><input type="text" id="f-location" /></div>
+          <div class="field"><label>Map link</label><input type="url" id="f-map" /></div>
+        </div>
+        <div class="field"><label>Sales team name</label><input type="text" id="f-sales" /></div>
+        <div class="sub-label">POC 1</div>
+        <div class="row3">
+          <div class="field"><label>Name</label><input type="text" id="f-poc1n" /></div>
+          <div class="field"><label>Phone</label><input type="text" id="f-poc1p" maxlength="10" /></div>
+          <div class="field"><label>Role</label><input type="text" id="f-poc1r" /></div>
+        </div>
+        <div class="sub-label">POC 2</div>
+        <div class="row3">
+          <div class="field"><label>Name</label><input type="text" id="f-poc2n" /></div>
+          <div class="field"><label>Phone</label><input type="text" id="f-poc2p" maxlength="10" /></div>
+          <div class="field"><label>Role</label><input type="text" id="f-poc2r" /></div>
+        </div>
+        <div class="sub-label">Times (HH:MM)</div>
+        <div class="row4">
+          <div class="field"><label>Shift start</label><input type="time" id="f-shift-s" /></div>
+          <div class="field"><label>Shift end</label><input type="time" id="f-shift-e" /></div>
+          <div class="field"><label>Reporting</label><input type="time" id="f-rep-t" /></div>
+          <div class="field"><label>Deployment start</label><input type="time" id="f-dep-s" /></div>
+        </div>
+        <div class="row3">
+          <div class="field"><label>Collection start</label><input type="time" id="f-col-s" /></div>
+          <div class="field"><label>Report submission</label><input type="time" id="f-rep-s" /></div>
+          <div class="field"><label>Final closing</label><input type="time" id="f-close" /></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn primary" id="submit-op">Create Op</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <span><span class="slash">//</span>&nbsp; My Assigned Operations</span>
+        <button class="btn hidden" id="show-new-op">+ New Op</button>
+      </div>
+      <div class="card-body" id="ops-host">loading…</div>
+    </div>
+  </div>
+</div>
+
+<script src="/config.js"></script>
+<script>
+(function () {
+  const API = window.BACKEND_URL;
+  const TOKEN_K = "spec_token";
+  const whoEl   = document.getElementById("who");
+  const banner  = document.getElementById("status-banner");
+  const appEl   = document.getElementById("app");
+
+  (function captureToken() {
+    const p = new URLSearchParams(location.search);
+    const t = p.get("token");
+    if (t) {
+      localStorage.setItem(TOKEN_K, t);
+      p.delete("token");
+      const qs = p.toString();
+      history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
+    }
+  })();
+
+  function token() { return localStorage.getItem(TOKEN_K) || ""; }
+  function authHdr() { return { Authorization: "Bearer " + token() }; }
+  function redirectToLogin() {
+    location.href = API + "/auth/google?next=" + encodeURIComponent(location.pathname);
+  }
+  function showBanner(cls, msg) {
+    banner.className = "banner " + cls;
+    banner.textContent = msg;
+    banner.classList.remove("hidden");
+  }
+
+  document.getElementById("signout").onclick = function () {
+    localStorage.removeItem(TOKEN_K);
+    location.reload();
+  };
+
+  let currentUser = null;
+
+  async function bootstrap() {
+    if (!token()) return redirectToLogin();
+    const res = await fetch(API + "/auth/verify?token=" + encodeURIComponent(token())).catch(() => null);
+    if (!res) return showBanner("err", "Network error");
+    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
+    if (!res.ok) return showBanner("err", "Auth check failed: " + res.status);
+    const { user } = await res.json();
+    currentUser = user;
+
+    if (!["chief","general"].includes(user.role)) {
+      return showBanner("err",
+        `Signed in as ${user.email} (role: ${user.role || "none"}). Chiefs and generals only.`);
+    }
+    whoEl.textContent = `${user.email} · ${user.role}`;
+    appEl.classList.remove("hidden");
+
+    // Fetch current chief perms to decide whether to show "+ New Op"
+    // (generals always can; chiefs need can_create_ops)
+    let canCreate = user.role === "general";
+    if (user.role === "chief") {
+      const rr = await fetch(API + "/api/roles", { headers: authHdr() }).catch(() => null);
+      // chiefs aren't allowed to call /api/roles, so probe POST /api/ops by optimistic UI: just attempt create on click and handle 403.
+      // Simpler: show the button always; backend will 403 if not permissioned.
+      canCreate = true;
+    }
+    if (canCreate) document.getElementById("show-new-op").classList.remove("hidden");
+
+    loadOps();
+  }
+
+  // ========== OPS ==========
+  async function loadOps() {
+    const res = await fetch(API + "/api/ops", { headers: authHdr() });
+    if (!res.ok) { showBanner("err", "Failed to load ops: " + res.status); return; }
+    const { rows } = await res.json();
+    const host = document.getElementById("ops-host");
+    host.innerHTML = "";
+    if (rows.length === 0) {
+      host.innerHTML = `<div class="empty">No operations assigned to you yet. Ask a general to assign you.</div>`;
+      return;
+    }
+    rows.forEach(op => host.appendChild(renderOp(op)));
+  }
+
+  function renderOp(op) {
+    const wrap = document.createElement("div");
+    wrap.className = "op-block";
+    wrap.innerHTML = `
+      <div class="op-head">
+        <div class="op-title">
+          <strong>${esc(op.factory_name)}</strong> · ${esc(op.shift)}<br>
+          <code>${esc(op.op_id)}</code>
+        </div>
+        <div class="inline-actions">
+          <span class="pill ${op.is_active ? 'ok' : 'off'}">${op.is_active ? 'Active' : 'Inactive'}</span>
+          <button class="btn tiny expand">Open</button>
+        </div>
+      </div>
+      <div class="op-body">
+        <div class="url-line">Reporter URL: ${esc(location.origin + '/r/' + op.op_id)}
+          <button class="btn tiny copy-url" data-url="${esc(location.origin + '/r/' + op.op_id)}">Copy</button>
+        </div>
+        <div class="sub-label">Edit op details</div>
+        <form class="edit-form" data-id="${esc(op.op_id)}">
+          <div class="row2">
+            <div class="field"><label>Location</label><input name="location" value="${esc(op.location ?? '')}" /></div>
+            <div class="field"><label>Map link</label><input name="map_link" type="url" value="${esc(op.map_link ?? '')}" /></div>
+          </div>
+          <div class="field"><label>Sales team</label><input name="sales_team_name" value="${esc(op.sales_team_name ?? '')}" /></div>
+          <div class="row3">
+            <div class="field"><label>POC1 name</label><input name="poc1_name" value="${esc(op.poc1_name ?? '')}" /></div>
+            <div class="field"><label>POC1 phone</label><input name="poc1_phone" value="${esc(op.poc1_phone ?? '')}" maxlength="10" /></div>
+            <div class="field"><label>POC1 role</label><input name="poc1_role" value="${esc(op.poc1_role ?? '')}" /></div>
+          </div>
+          <div class="row3">
+            <div class="field"><label>POC2 name</label><input name="poc2_name" value="${esc(op.poc2_name ?? '')}" /></div>
+            <div class="field"><label>POC2 phone</label><input name="poc2_phone" value="${esc(op.poc2_phone ?? '')}" maxlength="10" /></div>
+            <div class="field"><label>POC2 role</label><input name="poc2_role" value="${esc(op.poc2_role ?? '')}" /></div>
+          </div>
+          <div class="row4">
+            <div class="field"><label>Shift start</label><input name="shift_start" type="time" value="${esc(op.shift_start ?? '')}" /></div>
+            <div class="field"><label>Shift end</label><input name="shift_end" type="time" value="${esc(op.shift_end ?? '')}" /></div>
+            <div class="field"><label>Reporting</label><input name="reporting_time" type="time" value="${esc(op.reporting_time ?? '')}" /></div>
+            <div class="field"><label>Deployment</label><input name="deployment_start" type="time" value="${esc(op.deployment_start ?? '')}" /></div>
+          </div>
+          <div class="row3">
+            <div class="field"><label>Collection</label><input name="collection_start" type="time" value="${esc(op.collection_start ?? '')}" /></div>
+            <div class="field"><label>Report submit</label><input name="report_submission_time" type="time" value="${esc(op.report_submission_time ?? '')}" /></div>
+            <div class="field"><label>Final closing</label><input name="final_closing_time" type="time" value="${esc(op.final_closing_time ?? '')}" /></div>
+          </div>
+          <div class="form-actions"><button type="button" class="btn primary save-op">Save changes</button></div>
+        </form>
+        <div class="sub-label">Captains assigned to this op</div>
+        <div class="captains-host" data-id="${esc(op.op_id)}">loading…</div>
+      </div>
+    `;
+    wrap.querySelector(".expand").onclick = async () => {
+      wrap.classList.toggle("open");
+      if (wrap.classList.contains("open")) {
+        await loadCaptains(op.op_id, wrap.querySelector(".captains-host"));
+      }
+    };
+    wrap.querySelector(".copy-url").onclick = (e) => {
+      navigator.clipboard.writeText(e.target.dataset.url).then(() => flash(e.target, "Copied"));
+    };
+    wrap.querySelector(".save-op").onclick = () => saveOp(op.op_id, wrap.querySelector(".edit-form"));
+    return wrap;
+  }
+
+  async function saveOp(op_id, formEl) {
+    const fd = new FormData(formEl);
+    const payload = {};
+    for (const [k, v] of fd.entries()) payload[k] = v === "" ? null : v;
+    const res = await fetch(API + "/api/ops/" + encodeURIComponent(op_id), {
+      method: "PATCH", headers: { ...authHdr(), "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { alert("Save failed: " + (j.detail || res.status)); return; }
+    alert("Saved.");
+    loadOps();
+  }
+
+  async function loadCaptains(op_id, host) {
+    host.innerHTML = "loading…";
+    const res = await fetch(API + "/api/ops/" + encodeURIComponent(op_id) + "/assignments", { headers: authHdr() });
+    if (!res.ok) { host.innerHTML = "Failed to load: " + res.status; return; }
+    const { rows } = await res.json();
+    const captains = rows.filter(r => r.role === "captain");
+    host.innerHTML = `
+      ${captains.map(c => `
+        <div class="captain-row">
+          <span>${esc(c.email)}</span>
+          <span class="pill mute">captain</span>
+          <button class="btn tiny danger rm" data-email="${esc(c.email)}">Remove</button>
+        </div>
+      `).join("") || '<div class="empty">no captains yet</div>'}
+      <div class="captain-form">
+        <input type="email" class="new-email" placeholder="captain@example.com" />
+        <button class="btn primary add">Add captain</button>
+      </div>
+    `;
+    host.querySelectorAll(".rm").forEach(b => b.onclick = () => removeCaptain(op_id, b.dataset.email, host));
+    host.querySelector(".add").onclick = () => addCaptain(op_id, host.querySelector(".new-email").value, host);
+  }
+
+  async function addCaptain(op_id, email, host) {
+    email = (email || "").trim().toLowerCase();
+    if (!email) { alert("email required"); return; }
+    const res = await fetch(API + "/api/ops/" + encodeURIComponent(op_id) + "/assignments", {
+      method: "POST", headers: { ...authHdr(), "Content-Type": "application/json" },
+      body: JSON.stringify({ email, role: "captain" }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { alert("Add captain failed: " + (j.detail || res.status)); return; }
+    await loadCaptains(op_id, host);
+  }
+
+  async function removeCaptain(op_id, email, host) {
+    if (!confirm(`Remove ${email} from this op?`)) return;
+    const res = await fetch(API + "/api/ops/" + encodeURIComponent(op_id) + "/assignments/" + encodeURIComponent(email), {
+      method: "DELETE", headers: authHdr(),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { alert("Remove failed: " + (j.detail || res.status)); return; }
+    await loadCaptains(op_id, host);
+  }
+
+  // ========== CREATE OP ==========
+  document.getElementById("show-new-op").onclick = () => {
+    document.getElementById("create-wrap").classList.remove("hidden");
+    document.getElementById("f-factory").focus();
+  };
+  document.getElementById("cancel-new").onclick = () => {
+    document.getElementById("create-wrap").classList.add("hidden");
+  };
+  document.getElementById("submit-op").onclick = async function () {
+    const payload = {};
+    ["f-factory","f-shift","f-location","f-map","f-sales",
+     "f-poc1n","f-poc1p","f-poc1r","f-poc2n","f-poc2p","f-poc2r",
+     "f-shift-s","f-shift-e","f-rep-t","f-dep-s","f-col-s","f-rep-s","f-close"
+    ].forEach(id => {
+      const v = document.getElementById(id).value;
+      const key = ({
+        "f-factory":"factory_name","f-shift":"shift","f-location":"location","f-map":"map_link",
+        "f-sales":"sales_team_name","f-poc1n":"poc1_name","f-poc1p":"poc1_phone","f-poc1r":"poc1_role",
+        "f-poc2n":"poc2_name","f-poc2p":"poc2_phone","f-poc2r":"poc2_role",
+        "f-shift-s":"shift_start","f-shift-e":"shift_end","f-rep-t":"reporting_time","f-dep-s":"deployment_start",
+        "f-col-s":"collection_start","f-rep-s":"report_submission_time","f-close":"final_closing_time"
+      })[id];
+      payload[key] = v === "" ? null : v;
+    });
+    if (!payload.factory_name || !payload.shift) { alert("factory and shift are required"); return; }
+    this.disabled = true;
+    const orig = this.textContent; this.textContent = "Creating…";
+    try {
+      const res = await fetch(API + "/api/ops", {
+        method: "POST", headers: { ...authHdr(), "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 403) alert("You are not permissioned to create ops. Ask a general to enable can_create_ops.");
+        else alert("Create failed: " + (j.detail || res.status));
+        return;
+      }
+      document.querySelectorAll("#create-wrap input").forEach(i => i.value = "");
+      document.getElementById("create-wrap").classList.add("hidden");
+      loadOps();
+    } finally { this.disabled = false; this.textContent = orig; }
+  };
+
+  function esc(s)  { return String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function flash(el, msg) { const orig = el.textContent; el.textContent = msg; setTimeout(() => el.textContent = orig, 1200); }
+
+  bootstrap();
+})();
+</script>
+</body>
+</html>

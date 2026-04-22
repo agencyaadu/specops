@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ops — SpecOps</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" />
+<style>
+  *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#000; --surface:#0a0a0a; --border:rgba(255,255,255,0.14); --border-md:rgba(255,255,255,0.28);
+    --text:#f2f2f2; --muted:#9a9a9a; --hint:#5a5a5a; --accent:#fff; --on-accent:#000;
+    --green:#3ecf8e; --green-soft:rgba(62,207,142,0.10); --red:#f87171; --amber:#f5a524;
+    --mono:'JetBrains Mono','Courier New',Courier,monospace;
+  }
+  html,body { background:var(--bg); }
+  body { color:var(--text); font-family:var(--mono); font-size:13px; line-height:1.55; min-height:100vh; }
+  .page { max-width:820px; margin:0 auto; padding:2.2rem 1.4rem 5rem; }
+  .topbar { display:flex; justify-content:space-between; align-items:center; padding-bottom:1rem; border-bottom:1px solid var(--border); margin-bottom:1.6rem; }
+  .topbar h1 { font-size:12px; font-weight:500; letter-spacing:.18em; text-transform:uppercase; }
+  .topbar .meta { font-size:10px; letter-spacing:.14em; color:var(--hint); text-transform:uppercase; display:flex; gap:14px; align-items:center; }
+  .card { border:1px solid var(--border); margin-bottom:1rem; }
+  .card-head { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border); font-size:10px; letter-spacing:.18em; text-transform:uppercase; }
+  .card-head .slash { color:var(--muted); }
+  .card-body { padding:16px; }
+  .banner { padding:12px 14px; border:1px solid var(--border); margin-bottom:1rem; font-size:12px; }
+  .banner.err { border-color:var(--red); color:var(--red); }
+  .banner.ok { border-color:var(--green); color:var(--green); background:var(--green-soft); }
+  .btn {
+    border:1px solid var(--border-md); background:transparent; color:var(--text);
+    padding:8px 14px; font-family:var(--mono); font-size:10px; letter-spacing:.16em;
+    text-transform:uppercase; cursor:pointer; transition:background .12s, border-color .12s;
+    text-decoration:none; display:inline-block;
+  }
+  .btn:hover { border-color:var(--accent); background:var(--surface); }
+  .btn.primary { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  .btn.tiny { padding:4px 8px; font-size:9px; }
+  .loader { color:var(--hint); font-size:11px; letter-spacing:.14em; text-transform:uppercase; padding:14px 0; }
+  .hidden { display:none; }
+  .op-row {
+    display:flex; justify-content:space-between; align-items:center; gap:12px;
+    padding:14px 16px; border:1px solid var(--border); margin-bottom:8px;
+  }
+  .op-row .meta { font-size:11px; color:var(--muted); }
+  .op-row code { color:var(--hint); font-size:10px; }
+  .pill { display:inline-block; font-size:10px; letter-spacing:.14em; text-transform:uppercase; padding:3px 8px; border:1px solid var(--border); }
+  .pill.ok { border-color:var(--green); color:var(--green); background:var(--green-soft); }
+  .pill.off { border-color:var(--red); color:var(--red); }
+  .empty { padding:20px; text-align:center; color:var(--hint); font-size:11px; letter-spacing:.14em; text-transform:uppercase; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="topbar">
+    <h1>// Ops</h1>
+    <div class="meta">
+      <span id="who">—</span>
+      <button class="btn tiny hidden" id="signout">Sign out</button>
+    </div>
+  </div>
+
+  <div id="status-banner" class="hidden"></div>
+  <div class="loader" id="loader">signing you in…</div>
+</div>
+
+<script src="/config.js"></script>
+<script>
+(function () {
+  const API     = window.BACKEND_URL;
+  const TOKEN_K = "spec_token";
+  const whoEl   = document.getElementById("who");
+  const banner  = document.getElementById("status-banner");
+  const loader  = document.getElementById("loader");
+  const signoutBtn  = document.getElementById("signout");
+
+  (function captureToken() {
+    const p = new URLSearchParams(location.search);
+    const t = p.get("token");
+    if (t) {
+      localStorage.setItem(TOKEN_K, t);
+      p.delete("token");
+      const qs = p.toString();
+      history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
+    }
+  })();
+
+  function token() { return localStorage.getItem(TOKEN_K) || ""; }
+  function authHdr() { return { Authorization: "Bearer " + token() }; }
+
+  function redirectToLogin() {
+    location.href = API + "/auth/google?next=" + encodeURIComponent(location.pathname);
+  }
+
+  function showBanner(cls, msg) {
+    loader.classList.add("hidden");
+    banner.className = "banner " + cls;
+    banner.textContent = msg;
+    banner.classList.remove("hidden");
+  }
+
+  signoutBtn.onclick = function () {
+    localStorage.removeItem(TOKEN_K);
+    location.reload();
+  };
+
+  async function bootstrap() {
+    if (!token()) return redirectToLogin();
+    let res;
+    try { res = await fetch(API + "/auth/verify?token=" + encodeURIComponent(token())); }
+    catch (e) { return showBanner("err", "Network error: " + e.message); }
+    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
+    if (!res.ok) return showBanner("err", "Auth check failed: " + res.status);
+    const { user } = await res.json();
+
+    whoEl.textContent = `${user.email} · ${user.role || "no role"}`;
+    signoutBtn.classList.remove("hidden");
+
+    const dest = {
+      general: "/ops/general",
+      chief:   "/ops/chief",
+      captain: "/ops/captain",
+    }[user.role];
+    if (dest) { location.replace(dest); return; }
+    // No role (or unknown) — someone signed in who isn't in bot_roles.
+    showBanner("err",
+      `Signed in as ${user.email} but you have no assigned role. Ask a general to add you.`);
+  }
+
+  bootstrap();
+})();
+</script>
+</body>
+</html>

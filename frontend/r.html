@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Daily Report — SpecOps</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#000; --surface:#0a0a0a; --border:rgba(255,255,255,0.14); --border-md:rgba(255,255,255,0.28);
+    --text:#f2f2f2; --muted:#9a9a9a; --hint:#5a5a5a; --accent:#fff; --on-accent:#000;
+    --green:#3ecf8e; --green-soft:rgba(62,207,142,0.10); --red:#f87171; --amber:#f5a524;
+    --mono:'JetBrains Mono','Courier New',Courier,monospace;
+  }
+  html,body { background:var(--bg); }
+  body { color:var(--text); font-family:var(--mono); font-size:13px; line-height:1.55; min-height:100vh; }
+  .page { max-width:820px; margin:0 auto; padding:2.2rem 1.2rem 5rem; }
+  .topbar { display:flex; justify-content:space-between; align-items:center; padding-bottom:1rem; border-bottom:1px solid var(--border); margin-bottom:1.6rem; }
+  .topbar h1 { font-size:12px; font-weight:500; letter-spacing:.18em; text-transform:uppercase; }
+  .topbar .meta { font-size:10px; letter-spacing:.14em; color:var(--hint); text-transform:uppercase; }
+  .card { border:1px solid var(--border); margin-bottom:1.1rem; }
+  .card-head { display:flex; justify-content:space-between; padding:12px 16px; border-bottom:1px solid var(--border); font-size:10px; letter-spacing:.18em; text-transform:uppercase; }
+  .card-head .slash { color:var(--muted); }
+  .card-head .tag { color:var(--muted); }
+  .card-body { padding:18px 16px; }
+  .ctx { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px 18px; }
+  .ctx .k { color:var(--hint); font-size:10px; text-transform:uppercase; letter-spacing:.16em; }
+  .ctx .v { color:var(--text); }
+  .field { margin-bottom:.9rem; }
+  .field:last-child { margin-bottom:0; }
+  label { display:block; font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+  input,textarea,select {
+    width:100%; background:transparent; border:none; border-bottom:1px solid var(--border);
+    color:var(--text); font-family:var(--mono); font-size:13px; padding:8px 2px; outline:none;
+  }
+  input:focus,textarea:focus { border-bottom-color:var(--accent); }
+  textarea { resize:vertical; min-height:60px; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+  @media (max-width:640px) { .row2,.row3 { grid-template-columns:1fr; } }
+  .btn {
+    border:1px solid var(--border-md); background:transparent; color:var(--text);
+    padding:10px 18px; font-family:var(--mono); font-size:11px; letter-spacing:.16em;
+    text-transform:uppercase; cursor:pointer; transition:background .12s, border-color .12s;
+  }
+  .btn:hover { border-color:var(--accent); background:var(--surface); }
+  .btn.primary { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  .btn.primary:disabled { opacity:.4; cursor:not-allowed; }
+  .btn.ghost { padding:6px 12px; font-size:10px; }
+  .person { border:1px solid var(--border); padding:14px; margin-bottom:12px; }
+  .person-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); }
+  .photo-box {
+    border:1px dashed var(--border-md); padding:14px; text-align:center; cursor:pointer;
+    font-size:11px; color:var(--muted); letter-spacing:.08em;
+  }
+  .photo-box:hover { border-color:var(--accent); color:var(--text); }
+  .photo-box input[type=file] { display:none; }
+  .badge { display:inline-block; font-size:10px; letter-spacing:.14em; text-transform:uppercase; padding:3px 8px; border:1px solid var(--border); margin-top:8px; }
+  .badge.ok { border-color:var(--green); color:var(--green); background:var(--green-soft); }
+  .badge.warn { border-color:var(--amber); color:var(--amber); }
+  .badge.err { border-color:var(--red); color:var(--red); }
+  .event-row { display:grid; grid-template-columns:170px 1fr auto; gap:10px; margin-bottom:10px; }
+  @media (max-width:640px) { .event-row { grid-template-columns:1fr; } }
+  .submit-row { display:flex; justify-content:flex-end; margin-top:1.4rem; }
+  .banner { padding:14px 16px; border:1px solid var(--border); margin-bottom:1rem; font-size:12px; }
+  .banner.err { border-color:var(--red); color:var(--red); }
+  .banner.ok { border-color:var(--green); color:var(--green); background:var(--green-soft); }
+  .hidden { display:none; }
+  .hint { font-size:11px; color:var(--hint); margin-top:4px; }
+  .sub-label { font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--hint); margin:1.2rem 0 .8rem; padding-bottom:6px; border-bottom:1px solid var(--border); }
+  .card-body > .sub-label:first-child { margin-top:0; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="topbar">
+    <h1>// Daily Report</h1>
+    <div class="meta" id="meta">—</div>
+  </div>
+
+  <div id="status-banner" class="hidden"></div>
+
+  <div id="app" class="hidden">
+    <!-- OPERATION CONTEXT -->
+    <section class="card">
+      <div class="card-head"><span><span class="slash">//</span>&nbsp; Operation</span><span class="tag" id="op-id-tag"></span></div>
+      <div class="card-body">
+        <div class="ctx" id="op-ctx"></div>
+      </div>
+    </section>
+
+    <!-- DAILY FIELDS -->
+    <section class="card">
+      <div class="card-head"><span><span class="slash">//</span>&nbsp; Daily Counts</span><span class="tag">01</span></div>
+      <div class="card-body">
+        <div class="sub-label">Roster</div>
+        <div class="row3">
+          <div class="field"><label>Chiefs</label><input type="number" min="0" id="d-chiefs" /></div>
+          <div class="field"><label>Captains</label><input type="number" min="0" id="d-captains" /></div>
+          <div class="field"><label>Operators</label><input type="number" min="0" id="d-operators" /></div>
+        </div>
+        <div class="sub-label">SD Cards</div>
+        <div class="row2">
+          <div class="field"><label>Used</label><input type="number" min="0" id="d-sd-used" /></div>
+          <div class="field"><label>Left</label><input type="number" min="0" id="d-sd-left" /></div>
+        </div>
+        <div class="sub-label">Devices</div>
+        <div class="row2">
+          <div class="field"><label>Available</label><input type="number" min="0" id="d-dev-avail" /></div>
+          <div class="field"><label>Deployed</label><input type="number" min="0" id="d-dev-dep" /></div>
+          <div class="field"><label>Lost</label><input type="number" min="0" id="d-dev-lost" /></div>
+          <div class="field"><label>Recovered</label><input type="number" min="0" id="d-dev-rec" /></div>
+        </div>
+        <div class="sub-label">Good Hours</div>
+        <div class="row2">
+          <div class="field"><label>Projected</label><input type="number" min="0" step="0.1" id="d-gh-proj" /></div>
+          <div class="field"><label>Actual</label><input type="number" min="0" step="0.1" id="d-gh-act" /></div>
+        </div>
+        <div class="sub-label">Times</div>
+        <div class="row2">
+          <div class="field"><label>Actual Reporting Time</label><input type="time" id="d-art" /></div>
+          <div class="field"><label>Time Leaving</label><input type="time" id="d-tl" /></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- EVENTS -->
+    <section class="card">
+      <div class="card-head"><span><span class="slash">//</span>&nbsp; Events</span><span class="tag">02</span></div>
+      <div class="card-body">
+        <div id="events"></div>
+        <button type="button" class="btn ghost" id="add-event">+ Add event</button>
+      </div>
+    </section>
+
+    <!-- ATTENDANCE -->
+    <section class="card">
+      <div class="card-head"><span><span class="slash">//</span>&nbsp; Attendance</span><span class="tag">03</span></div>
+      <div class="card-body">
+        <div id="people"></div>
+        <button type="button" class="btn ghost" id="add-person">+ Add person</button>
+      </div>
+    </section>
+
+    <div class="submit-row">
+      <button type="button" class="btn primary" id="submit">Submit Report</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.min.js"></script>
+<script src="/config.js"></script>
+<script>
+(function () {
+  const API      = window.BACKEND_URL;
+  const TOKEN_K  = "spec_token";
+  // op_id comes from the path (vercel rewrites /r/:op_id -> /r.html), or ?op= for local dev.
+  let opId = location.pathname.replace(/\/+$/,"").split("/").pop();
+  if (!opId || opId === "r" || opId === "r.html") {
+    opId = new URLSearchParams(location.search).get("op") || "";
+  }
+  const meta     = document.getElementById("meta");
+  const banner   = document.getElementById("status-banner");
+  const appEl    = document.getElementById("app");
+
+  meta.textContent = opId;
+
+  // Grab token from ?token= and stash it, clean URL.
+  (function captureToken() {
+    const p = new URLSearchParams(location.search);
+    const t = p.get("token");
+    if (t) {
+      localStorage.setItem(TOKEN_K, t);
+      p.delete("token");
+      const qs = p.toString();
+      history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
+    }
+  })();
+
+  function token() { return localStorage.getItem(TOKEN_K) || ""; }
+
+  function redirectToLogin() {
+    const next = encodeURIComponent(location.pathname);
+    location.href = API + "/auth/google?next=" + next;
+  }
+
+  function showBanner(cls, msg) {
+    banner.className = "banner " + cls;
+    banner.textContent = msg;
+    banner.classList.remove("hidden");
+  }
+
+  async function loadContext() {
+    if (!token()) return redirectToLogin();
+    let res;
+    try {
+      res = await fetch(API + "/api/op/" + encodeURIComponent(opId), {
+        headers: { Authorization: "Bearer " + token() },
+      });
+    } catch (e) { return showBanner("err", "Network error: " + e.message); }
+
+    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
+    if (res.status === 403) { return showBanner("err", "This account is not authorized to submit reports. Ask an admin to add you as a reporter."); }
+    if (res.status === 404) { return showBanner("err", "Operation not found."); }
+    if (res.status === 410) {
+      const j = await res.json().catch(() => ({}));
+      return showBanner("err", "Operation unavailable: " + (j.detail || "not active"));
+    }
+    if (!res.ok) { return showBanner("err", "Unexpected error: " + res.status); }
+
+    const ctx = await res.json();
+    renderOp(ctx);
+    if (ctx.already_submitted) {
+      showBanner("ok", "Today's report was already submitted for this operation. Come back tomorrow.");
+      return;
+    }
+    appEl.classList.remove("hidden");
+    addPerson();
+  }
+
+  function renderOp(ctx) {
+    document.getElementById("op-id-tag").textContent = ctx.op_id;
+    const mapHtml = (() => {
+      const u = ctx.map_link;
+      if (!u || !/^https?:\/\//i.test(u)) return "";
+      return `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer" style="color:var(--text)">open map</a>`;
+    })();
+    const rows = [
+      ["Factory",        esc(ctx.factory_name)],
+      ["Shift",          esc(ctx.shift)],
+      ["Location",       esc(ctx.location)],
+      ["Sales Team",     esc(ctx.sales_team_name)],
+      ["POC 1",          esc(joinLine(ctx.poc1_name, ctx.poc1_phone, ctx.poc1_role))],
+      ["POC 2",          esc(joinLine(ctx.poc2_name, ctx.poc2_phone, ctx.poc2_role))],
+      ["Shift Hours",    esc(joinRange(ctx.shift_start, ctx.shift_end))],
+      ["Reporting Time", esc(ctx.reporting_time)],
+      ["Deployment Start", esc(ctx.deployment_start)],
+      ["Collection Start", esc(ctx.collection_start)],
+      ["Report Submission Time", esc(ctx.report_submission_time)],
+      ["Final Closing Time",     esc(ctx.final_closing_time)],
+      ["Map",            mapHtml],
+    ];
+    const host = document.getElementById("op-ctx");
+    host.innerHTML = rows
+      .filter(([_,v]) => v && String(v).trim())
+      .map(([k,v]) => `<div><div class="k">${k}</div><div class="v">${v}</div></div>`)
+      .join("");
+  }
+
+  function joinLine(...parts) { return parts.filter(Boolean).join(" · "); }
+  function joinRange(a,b) { return a && b ? `${a} — ${b}` : (a || b || ""); }
+  function esc(v) {
+    if (v === null || v === undefined) return "";
+    return String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // EVENTS
+  function addEvent() {
+    const row = document.createElement("div");
+    row.className = "event-row";
+    row.innerHTML = `
+      <input type="datetime-local" class="ev-ts" />
+      <input type="text" class="ev-note" placeholder="note" />
+      <button type="button" class="btn ghost ev-rm">remove</button>
+    `;
+    row.querySelector(".ev-rm").onclick = () => row.remove();
+    document.getElementById("events").appendChild(row);
+  }
+  document.getElementById("add-event").onclick = addEvent;
+
+  // ATTENDANCE
+  let personCounter = 0;
+  function addPerson() {
+    personCounter++;
+    const n = personCounter;
+    const wrap = document.createElement("div");
+    wrap.className = "person";
+    wrap.dataset.idx = n;
+    wrap.innerHTML = `
+      <div class="person-head">
+        <span>Person ${n}</span>
+        <button type="button" class="btn ghost rm">remove</button>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Full name</label><input type="text" class="p-name" required /></div>
+        <div class="field"><label>Phone (10-digit)</label><input type="text" class="p-phone" inputmode="numeric" maxlength="10" pattern="[6-9][0-9]{9}" required /></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>PAN</label><input type="text" class="p-pan" maxlength="10" pattern="[A-Za-z]{5}[0-9]{4}[A-Za-z]" style="text-transform:uppercase" required /></div>
+        <div class="field"><label>Role</label>
+          <select class="p-role">
+            <option value="operator" selected>operator</option>
+            <option value="captain">captain</option>
+            <option value="chief">chief</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Photo (jpeg / heic, geotagged)</label>
+        <label class="photo-box">
+          <span class="photo-label">Tap to capture or upload</span>
+          <input type="file" class="p-photo" accept="image/jpeg,image/heic,image/heif" capture="environment" />
+        </label>
+        <div class="badge" style="display:none"></div>
+      </div>
+    `;
+    wrap.querySelector(".rm").onclick = () => wrap.remove();
+    wrap.querySelector(".p-photo").onchange = (e) => onPhotoPick(wrap, e.target.files[0]);
+    document.getElementById("people").appendChild(wrap);
+  }
+  document.getElementById("add-person").onclick = addPerson;
+
+  async function onPhotoPick(personEl, file) {
+    const badge = personEl.querySelector(".badge");
+    const label = personEl.querySelector(".photo-label");
+    if (!file) return;
+    label.textContent = file.name + " · " + (file.size / 1024 / 1024).toFixed(2) + " MB";
+    badge.style.display = "inline-block";
+    badge.className = "badge";
+    badge.textContent = "checking geo…";
+
+    // 1. EXIF GPS
+    let gps = null;
+    try { gps = await exifr.gps(file); } catch (_) {}
+    if (!gps || gps.latitude == null) {
+      badge.classList.add("err"); badge.textContent = "no GPS in photo";
+      personEl.dataset.verified = "no-gps";
+      return;
+    }
+    personEl.dataset.exifLat = gps.latitude;
+    personEl.dataset.exifLng = gps.longitude;
+
+    // 2. Browser geo
+    let coords;
+    try {
+      coords = await new Promise((res, rej) => {
+        navigator.geolocation.getCurrentPosition(
+          p => res(p.coords),
+          e => rej(e),
+          { enableHighAccuracy: true, timeout: 15000 }
+        );
+      });
+    } catch (e) {
+      badge.classList.add("err"); badge.textContent = "geolocation denied";
+      return;
+    }
+    personEl.dataset.brLat = coords.latitude;
+    personEl.dataset.brLng = coords.longitude;
+
+    const d = haversineM(gps.latitude, gps.longitude, coords.latitude, coords.longitude);
+    personEl.dataset.dist = d.toFixed(1);
+    if (d <= 200) {
+      badge.classList.add("ok");
+      badge.textContent = "✓ " + Math.round(d) + " m away";
+    } else {
+      badge.classList.add("warn");
+      badge.textContent = "⚠ " + Math.round(d) + " m away (over 200m)";
+    }
+  }
+
+  function haversineM(lat1, lon1, lat2, lon2) {
+    const R = 6371000, toRad = d => d * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+
+  // SUBMIT
+  document.getElementById("submit").onclick = async function () {
+    const btn = this;
+    btn.disabled = true;
+    const orig = btn.textContent;
+    btn.textContent = "Submitting…";
+    try {
+      const payload = buildPayload();
+      if (!payload) return;
+      const fd = new FormData();
+      fd.append("payload", JSON.stringify(payload.json));
+      payload.photos.forEach(f => fd.append("photos", f));
+
+      const res = await fetch(API + "/api/daily/" + encodeURIComponent(opId), {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token() },
+        body: fd,
+      });
+      if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) { alert("Submit failed: " + (j.detail || res.status)); return; }
+      appEl.classList.add("hidden");
+      showBanner("ok", "Report submitted. Thanks.");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = orig;
+    }
+  };
+
+  function buildPayload() {
+    const daily = {
+      chiefs:               numVal("d-chiefs"),
+      captains:             numVal("d-captains"),
+      operators:            numVal("d-operators"),
+      sd_cards_used:        numVal("d-sd-used"),
+      sd_cards_left:        numVal("d-sd-left"),
+      devices_available:    numVal("d-dev-avail"),
+      devices_deployed:     numVal("d-dev-dep"),
+      devices_lost:         numVal("d-dev-lost"),
+      devices_recovered:    numVal("d-dev-rec"),
+      good_hours_projected: numVal("d-gh-proj"),
+      good_hours_actual:    numVal("d-gh-act"),
+      actual_reporting_time:strVal("d-art"),
+      time_leaving:         strVal("d-tl"),
+    };
+    const events = [...document.querySelectorAll(".event-row")].map(r => {
+      const ts = r.querySelector(".ev-ts").value;
+      const note = r.querySelector(".ev-note").value.trim();
+      if (!ts || !note) return null;
+      return { ts: new Date(ts).toISOString(), note };
+    }).filter(Boolean);
+
+    const people = [...document.querySelectorAll(".person")];
+    if (people.length === 0) { alert("Add at least one attendee."); return null; }
+    const attendance = [];
+    const photos = [];
+    for (let i = 0; i < people.length; i++) {
+      const p = people[i];
+      const name  = p.querySelector(".p-name").value.trim();
+      const phone = p.querySelector(".p-phone").value.trim();
+      const pan   = p.querySelector(".p-pan").value.trim().toUpperCase();
+      const personRole = p.querySelector(".p-role").value;
+      const fileEl = p.querySelector(".p-photo");
+      const file  = fileEl.files[0];
+      if (!name || !phone || !pan || !file) { alert(`Person ${i+1}: complete all fields + photo.`); return null; }
+      if (!/^[6-9]\d{9}$/.test(phone)) { alert(`Person ${i+1}: invalid phone`); return null; }
+      if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan)) { alert(`Person ${i+1}: invalid PAN`); return null; }
+      if (!["chief","captain","operator"].includes(personRole)) { alert(`Person ${i+1}: invalid role`); return null; }
+      if (!p.dataset.brLat || !p.dataset.exifLat) { alert(`Person ${i+1}: re-attach photo so geolocation can run.`); return null; }
+      attendance.push({
+        full_name: name, phone, pan,
+        person_role: personRole,
+        browser_lat: parseFloat(p.dataset.brLat),
+        browser_lng: parseFloat(p.dataset.brLng),
+      });
+      photos.push(file);
+    }
+    return { json: { daily, events, attendance }, photos };
+  }
+
+  function numVal(id) { const v = document.getElementById(id).value; return v === "" ? null : Number(v); }
+  function strVal(id) { return document.getElementById(id).value || null; }
+
+  if (!opId) {
+    showBanner("err", "Missing operation id. Expected URL like /r/factory-a_morning-shift");
+  } else {
+    loadContext();
+  }
+})();
+</script>
+</body>
+</html>

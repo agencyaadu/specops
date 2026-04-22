@@ -1,33 +1,62 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+import asyncpg
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
 REQUIRED_ENV = [
-    "APPSCRIPT_URL", "APPSCRIPT_SECRET",
+    "DATABASE_URL", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_BUCKET", "SUPABASE_ATTENDANCE_BUCKET",
     "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI",
-    "JWT_SECRET", "ENCRYPTION_KEY", "FRONTEND_URL",
+    "JWT_SECRET", "ENCRYPTION_KEY", "ADMIN_PASSWORD",
+    "FRONTEND_URL", "ALLOWED_ORIGINS",
 ]
 _missing = [k for k in REQUIRED_ENV if not os.environ.get(k)]
 if _missing:
     raise SystemExit(f"FATAL: missing required env vars: {', '.join(_missing)}")
 
-from routers import submissions, auth
+_allowed_origins = [o.strip() for o in os.environ["ALLOWED_ORIGINS"].split(",") if o.strip()]
+if not _allowed_origins or "*" in _allowed_origins:
+    raise SystemExit("FATAL: ALLOWED_ORIGINS must be an explicit comma-separated list (no wildcard)")
 
-app = FastAPI(title="SpecOps Onboarding")
+from routers import submissions, auth, admin, ops, reports, daily, roles, assignments, notes
+from db import init_db
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # statement_cache_size=0 keeps this safe behind Supabase's transaction pooler (pgbouncer)
+    app.state.db = await asyncpg.create_pool(
+        os.environ["DATABASE_URL"],
+        statement_cache_size=0,
+        min_size=1,
+        max_size=10,
+    )
+    await init_db(app.state.db)
+    yield
+    await app.state.db.close()
+
+app = FastAPI(title="SpecOps Onboarding", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.environ.get("ALLOWED_ORIGINS", "*").split(","),
+    allow_origins=_allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
-app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(submissions.router, prefix="/submit", tags=["submit"])
+app.include_router(auth.router,        prefix="/auth",      tags=["auth"])
+app.include_router(submissions.router, prefix="/submit",    tags=["submit"])
+app.include_router(admin.router,       prefix="/admin",     tags=["admin"])
+app.include_router(ops.router,         prefix="/api/ops",   tags=["ops"])
+app.include_router(assignments.router, prefix="/api/ops",   tags=["assignments"])
+app.include_router(reports.router,     prefix="/api/op",    tags=["reports"])
+app.include_router(daily.router,       prefix="/api/daily", tags=["daily"])
+app.include_router(roles.router,       prefix="/api/roles", tags=["roles"])
+app.include_router(notes.router,       prefix="/api/notes", tags=["notes"])
 
 @app.get("/health")
 async def health():

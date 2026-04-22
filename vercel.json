@@ -5,6 +5,13 @@
   "installCommand": null,
   "framework": null,
   "cleanUrls": true,
+  "rewrites": [
+    { "source": "/r/:op_id",   "destination": "/r.html" },
+    { "source": "/ops",        "destination": "/ops.html" },
+    { "source": "/ops/general","destination": "/ops-admin.html" },
+    { "source": "/ops/chief",  "destination": "/chief-admin.html" },
+    { "source": "/ops/captain","destination": "/captain.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

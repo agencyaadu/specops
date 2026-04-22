@@ -1,0 +1,210 @@
+import asyncpg
+import os
+
+CREATE_SUBMISSIONS = """
+CREATE TABLE IF NOT EXISTS submissions (
+    id                  BIGSERIAL PRIMARY KEY ,
+    created_at          TIMESTAMPTZ DEFAULT NOW() ,
+
+    -- identity
+    full_name           TEXT NOT NULL ,
+    whatsapp            TEXT NOT NULL ,
+    email               TEXT NOT NULL ,
+    alt_email           TEXT ,
+    occupation          TEXT ,
+    google_id           TEXT ,
+    google_picture      TEXT ,
+
+    -- socials
+    telegram_id         TEXT ,
+    discord_id          TEXT ,
+    twitter_id          TEXT ,
+    referred_by         TEXT ,
+
+    -- languages
+    languages           TEXT[] ,
+
+    -- about
+    hardest_problem     TEXT ,
+    health_notes        TEXT ,
+
+    -- address
+    address_line1       TEXT ,
+    address_line2       TEXT ,
+    pincode             TEXT ,
+    city                TEXT ,
+    state               TEXT ,
+
+    -- payment
+    upi_id              TEXT ,
+    beneficiary_name    TEXT ,
+    account_number_enc  TEXT ,
+    ifsc_code           TEXT ,
+    bank_name           TEXT ,
+    branch_name         TEXT ,
+
+    -- pan
+    pan_number_enc      TEXT ,
+
+    -- files (Supabase Storage public URL for PAN; unlisted YouTube URL for intro)
+    pan_card_url        TEXT ,
+    intro_video_url     TEXT ,
+
+    -- consent
+    consented           BOOLEAN NOT NULL DEFAULT FALSE ,
+    consented_terms     BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_submissions_email      ON submissions(email);
+CREATE INDEX IF NOT EXISTS idx_submissions_created_at ON submissions(created_at DESC);
+"""
+
+CREATE_OPERATIONS = """
+CREATE TABLE IF NOT EXISTS operations (
+    op_id                     TEXT PRIMARY KEY ,
+    factory_name              TEXT NOT NULL ,
+    shift                     TEXT NOT NULL ,
+    location                  TEXT ,
+    map_link                  TEXT ,
+    poc1_name                 TEXT ,
+    poc1_phone                TEXT ,
+    poc1_role                 TEXT ,
+    poc2_name                 TEXT ,
+    poc2_phone                TEXT ,
+    poc2_role                 TEXT ,
+    sales_team_name           TEXT ,
+    shift_start               TIME ,
+    shift_end                 TIME ,
+    reporting_time            TIME ,
+    deployment_start          TIME ,
+    collection_start          TIME ,
+    report_submission_time    TIME ,
+    final_closing_time        TIME ,
+    is_active                 BOOLEAN DEFAULT TRUE ,
+    created_at                TIMESTAMPTZ DEFAULT NOW() ,
+    UNIQUE (factory_name, shift)
+);
+"""
+
+CREATE_DAILY_REPORTS = """
+CREATE TABLE IF NOT EXISTS daily_reports (
+    id                      BIGSERIAL PRIMARY KEY ,
+    op_id                   TEXT NOT NULL REFERENCES operations(op_id) ,
+    report_date             DATE NOT NULL ,
+    chiefs                  INT ,
+    captains                INT ,
+    operators               INT ,
+    sd_cards_used           INT ,
+    sd_cards_left           INT ,
+    devices_available       INT ,
+    devices_deployed        INT ,
+    devices_lost            INT ,
+    devices_recovered       INT ,
+    good_hours_projected    NUMERIC ,
+    good_hours_actual       NUMERIC ,
+    actual_reporting_time   TIME ,
+    time_leaving            TIME ,
+    submitted_by_email      TEXT ,
+    submitted_at            TIMESTAMPTZ DEFAULT NOW() ,
+    UNIQUE (op_id, report_date)
+);
+CREATE INDEX IF NOT EXISTS idx_daily_reports_date ON daily_reports(report_date);
+"""
+
+CREATE_REPORT_EVENTS = """
+CREATE TABLE IF NOT EXISTS report_events (
+    id          BIGSERIAL PRIMARY KEY ,
+    report_id   BIGINT NOT NULL REFERENCES daily_reports(id) ON DELETE CASCADE ,
+    ts          TIMESTAMPTZ NOT NULL ,
+    note        TEXT NOT NULL
+);
+"""
+
+CREATE_ATTENDANCE = """
+CREATE TABLE IF NOT EXISTS attendance (
+    id                BIGSERIAL PRIMARY KEY ,
+    op_id             TEXT NOT NULL REFERENCES operations(op_id) ,
+    report_date       DATE NOT NULL ,
+    full_name         TEXT NOT NULL ,
+    phone             TEXT NOT NULL ,
+    person_role       TEXT NOT NULL CHECK (person_role IN ('chief','captain','operator')) ,
+    pan_number_enc    TEXT NOT NULL ,
+    pan_number_hash   TEXT NOT NULL ,
+    photo_key         TEXT NOT NULL ,
+    photo_exif_lat    NUMERIC(9, 6) ,
+    photo_exif_lng    NUMERIC(9, 6) ,
+    browser_lat       NUMERIC(9, 6) ,
+    browser_lng       NUMERIC(9, 6) ,
+    distance_m        NUMERIC ,
+    verified          BOOLEAN DEFAULT FALSE ,
+    submitted_at      TIMESTAMPTZ DEFAULT NOW() ,
+    UNIQUE (op_id, report_date, pan_number_hash)
+);
+CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance(report_date);
+"""
+
+CREATE_BOT_ROLES = """
+CREATE TABLE IF NOT EXISTS bot_roles (
+    email           TEXT PRIMARY KEY ,
+    role            TEXT NOT NULL CHECK (role IN ('general', 'chief', 'captain')) ,
+    can_create_ops  BOOLEAN NOT NULL DEFAULT FALSE ,
+    added_at        TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE bot_roles ADD COLUMN IF NOT EXISTS can_create_ops BOOLEAN NOT NULL DEFAULT FALSE;
+"""
+
+CREATE_NOTES = """
+CREATE TABLE IF NOT EXISTS captain_notes (
+    id          BIGSERIAL PRIMARY KEY ,
+    email       TEXT NOT NULL ,
+    role        TEXT ,
+    op_id       TEXT REFERENCES operations(op_id) ON DELETE SET NULL ,
+    kind        TEXT NOT NULL CHECK (kind IN ('journal','complaint','greeting','other')) ,
+    note        TEXT NOT NULL ,
+    created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_captain_notes_created ON captain_notes(created_at DESC);
+"""
+
+CREATE_OP_ASSIGNMENTS = """
+CREATE TABLE IF NOT EXISTS op_assignments (
+    op_id             TEXT NOT NULL REFERENCES operations(op_id) ON DELETE CASCADE ,
+    email             TEXT NOT NULL REFERENCES bot_roles(email) ON DELETE CASCADE ,
+    role              TEXT NOT NULL CHECK (role IN ('chief','captain')) ,
+    assigned_by_email TEXT ,
+    added_at          TIMESTAMPTZ DEFAULT NOW() ,
+    PRIMARY KEY (op_id, email)
+);
+CREATE INDEX IF NOT EXISTS idx_op_assignments_email ON op_assignments(email);
+"""
+
+ALL_DDL = [
+    CREATE_SUBMISSIONS,
+    CREATE_OPERATIONS,
+    CREATE_DAILY_REPORTS,
+    CREATE_REPORT_EVENTS,
+    CREATE_BOT_ROLES,
+    CREATE_ATTENDANCE,
+    CREATE_OP_ASSIGNMENTS,
+    CREATE_NOTES,
+]
+
+async def init_db(pool: asyncpg.Pool):
+    async with pool.acquire() as conn:
+        for ddl in ALL_DDL:
+            await conn.execute(ddl)
+        await _seed_admins(conn)
+
+async def _seed_admins(conn: asyncpg.Connection):
+    raw = os.environ.get("GENERAL_EMAILS", "").strip()
+    if not raw:
+        return
+    emails = [e.strip().lower() for e in raw.split(",") if e.strip()]
+    for email in emails:
+        await conn.execute(
+            """
+            INSERT INTO bot_roles (email, role) VALUES ($1, 'general')
+            ON CONFLICT (email) DO UPDATE SET role = 'general'
+            """,
+            email,
+        )

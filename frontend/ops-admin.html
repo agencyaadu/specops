@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ops Admin — SpecOps</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" />
+<style>
+  *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#000; --surface:#0a0a0a; --border:rgba(255,255,255,0.14); --border-md:rgba(255,255,255,0.28);
+    --text:#f2f2f2; --muted:#9a9a9a; --hint:#5a5a5a; --accent:#fff; --on-accent:#000;
+    --green:#3ecf8e; --green-soft:rgba(62,207,142,0.10); --red:#f87171; --amber:#f5a524;
+    --mono:'JetBrains Mono','Courier New',Courier,monospace;
+  }
+  html,body { background:var(--bg); }
+  body { color:var(--text); font-family:var(--mono); font-size:13px; line-height:1.55; min-height:100vh; }
+  .page { max-width:1100px; margin:0 auto; padding:2.2rem 1.4rem 5rem; }
+  .topbar { display:flex; justify-content:space-between; align-items:center; padding-bottom:1rem; border-bottom:1px solid var(--border); margin-bottom:1.6rem; }
+  .topbar h1 { font-size:12px; font-weight:500; letter-spacing:.18em; text-transform:uppercase; }
+  .topbar .meta { font-size:10px; letter-spacing:.14em; color:var(--hint); text-transform:uppercase; display:flex; gap:14px; align-items:center; }
+  .tabs { display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:1.4rem; }
+  .tab { padding:10px 20px; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; }
+  .tab.active { color:var(--text); border-bottom-color:var(--accent); }
+  .tab:hover { color:var(--text); }
+  .card { border:1px solid var(--border); margin-bottom:1rem; }
+  .card-head { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border); font-size:10px; letter-spacing:.18em; text-transform:uppercase; }
+  .card-head .slash { color:var(--muted); }
+  .card-body { padding:16px; }
+  table { width:100%; border-collapse:collapse; font-size:12px; }
+  th, td { padding:10px 8px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top; }
+  th { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:500; }
+  td code { color:var(--muted); font-size:11px; }
+  .pill { display:inline-block; font-size:10px; letter-spacing:.14em; text-transform:uppercase; padding:3px 8px; border:1px solid var(--border); }
+  .pill.ok { border-color:var(--green); color:var(--green); background:var(--green-soft); }
+  .pill.off { border-color:var(--red); color:var(--red); }
+  .pill.mute { color:var(--hint); }
+  .btn {
+    border:1px solid var(--border-md); background:transparent; color:var(--text);
+    padding:8px 14px; font-family:var(--mono); font-size:10px; letter-spacing:.16em;
+    text-transform:uppercase; cursor:pointer; transition:background .12s, border-color .12s;
+  }
+  .btn:hover { border-color:var(--accent); background:var(--surface); }
+  .btn.primary { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
+  .btn.danger { color:var(--red); border-color:var(--red); }
+  .btn.tiny { padding:4px 8px; font-size:9px; }
+  input, select, textarea {
+    width:100%; background:transparent; border:none; border-bottom:1px solid var(--border);
+    color:var(--text); font-family:var(--mono); font-size:13px; padding:8px 2px; outline:none;
+  }
+  input[type=checkbox] { width:auto; }
+  input:focus, select:focus { border-bottom-color:var(--accent); }
+  select option { background:var(--surface); color:var(--text); }
+  .field { margin-bottom:.9rem; }
+  label { display:block; font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
+  .check-inline { display:flex; align-items:center; gap:8px; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+  .row4 { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+  @media (max-width:640px) { .row2,.row3,.row4 { grid-template-columns:1fr; } }
+  .sub-label { font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--hint); margin:1rem 0 .6rem; padding-bottom:6px; border-bottom:1px solid var(--border); }
+  .card-body > .sub-label:first-child { margin-top:0; }
+  .banner { padding:12px 14px; border:1px solid var(--border); margin-bottom:1rem; font-size:12px; }
+  .banner.err { border-color:var(--red); color:var(--red); }
+  .banner.ok { border-color:var(--green); color:var(--green); background:var(--green-soft); }
+  .hidden { display:none; }
+  .url-cell { font-size:11px; color:var(--muted); word-break:break-all; }
+  .inline-actions { display:flex; gap:6px; justify-content:flex-end; flex-wrap:wrap; }
+  .empty { padding:20px; text-align:center; color:var(--hint); font-size:11px; letter-spacing:.14em; text-transform:uppercase; }
+  .form-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:1rem; }
+  .assignments-panel { background:var(--surface); padding:14px 16px; margin:8px 0; border:1px solid var(--border); }
+  .assignments-panel h4 { font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); margin-bottom:10px; }
+  .assign-row { display:grid; grid-template-columns:1fr 110px 90px; gap:10px; margin-bottom:6px; align-items:center; font-size:12px; }
+  .assign-form { display:grid; grid-template-columns:1fr 110px 90px; gap:10px; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="topbar">
+    <h1>// Ops Admin</h1>
+    <div class="meta">
+      <span id="who">—</span>
+      <button class="btn tiny" id="signout">Sign out</button>
+    </div>
+  </div>
+
+  <div id="status-banner" class="hidden"></div>
+
+  <div id="app" class="hidden">
+    <div class="tabs">
+      <div class="tab active" data-tab="ops">Operations</div>
+      <div class="tab" data-tab="chiefs">Chiefs</div>
+    </div>
+
+    <!-- OPERATIONS TAB -->
+    <section id="tab-ops">
+      <div class="card">
+        <div class="card-head">
+          <span><span class="slash">//</span>&nbsp; Operations</span>
+          <button class="btn" id="show-new-op">+ New Op</button>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table id="ops-table">
+            <thead>
+              <tr>
+                <th>Factory</th><th>Shift</th><th>POC 1</th><th>Reporter URL</th>
+                <th>Status</th><th>Chiefs</th><th>Captains</th><th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div id="ops-empty" class="empty hidden">No operations yet. Create one to begin.</div>
+        </div>
+      </div>
+
+      <div class="card hidden" id="new-op-card">
+        <div class="card-head">
+          <span><span class="slash">//</span>&nbsp; Create Operation</span>
+          <button class="btn tiny" id="cancel-new-op">Cancel</button>
+        </div>
+        <div class="card-body">
+          <div class="sub-label">Identity (factory + shift become the op_id and cannot be edited later)</div>
+          <div class="row2">
+            <div class="field"><label>Factory name *</label><input type="text" id="f-factory" required /></div>
+            <div class="field"><label>Shift *</label><input type="text" id="f-shift" placeholder="Morning / Night / ..." required /></div>
+          </div>
+          <div class="row2">
+            <div class="field"><label>Location</label><input type="text" id="f-location" /></div>
+            <div class="field"><label>Map link</label><input type="url" id="f-map" placeholder="https://maps.app.goo.gl/..." /></div>
+          </div>
+          <div class="field"><label>Sales team name</label><input type="text" id="f-sales" /></div>
+          <div class="sub-label">POC 1</div>
+          <div class="row3">
+            <div class="field"><label>Name</label><input type="text" id="f-poc1n" /></div>
+            <div class="field"><label>Phone (10-digit)</label><input type="text" id="f-poc1p" maxlength="10" /></div>
+            <div class="field"><label>Role</label><input type="text" id="f-poc1r" /></div>
+          </div>
+          <div class="sub-label">POC 2</div>
+          <div class="row3">
+            <div class="field"><label>Name</label><input type="text" id="f-poc2n" /></div>
+            <div class="field"><label>Phone</label><input type="text" id="f-poc2p" maxlength="10" /></div>
+            <div class="field"><label>Role</label><input type="text" id="f-poc2r" /></div>
+          </div>
+          <div class="sub-label">Times (HH:MM)</div>
+          <div class="row4">
+            <div class="field"><label>Shift start</label><input type="time" id="f-shift-s" /></div>
+            <div class="field"><label>Shift end</label><input type="time" id="f-shift-e" /></div>
+            <div class="field"><label>Reporting</label><input type="time" id="f-rep-t" /></div>
+            <div class="field"><label>Deployment start</label><input type="time" id="f-dep-s" /></div>
+          </div>
+          <div class="row3">
+            <div class="field"><label>Collection start</label><input type="time" id="f-col-s" /></div>
+            <div class="field"><label>Report submission</label><input type="time" id="f-rep-s" /></div>
+            <div class="field"><label>Final closing</label><input type="time" id="f-close" /></div>
+          </div>
+          <div class="form-actions">
+            <button class="btn primary" id="submit-op">Create</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CHIEFS TAB -->
+    <section id="tab-chiefs" class="hidden">
+      <div class="card">
+        <div class="card-head">
+          <span><span class="slash">//</span>&nbsp; Add a Chief</span>
+        </div>
+        <div class="card-body">
+          <div class="row3" style="align-items:end">
+            <div class="field"><label>Email</label><input type="email" id="r-email" placeholder="name@example.com" /></div>
+            <div class="field">
+              <label>Can create ops</label>
+              <div class="check-inline" style="padding:8px 2px"><input type="checkbox" id="r-cco" /> <span style="font-size:11px;color:var(--muted)">allow this chief to create new ops</span></div>
+            </div>
+            <div class="field"><button class="btn primary" id="add-role">Add / Update</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body" style="padding:0">
+          <table id="roles-table">
+            <thead>
+              <tr><th>Email</th><th>Role</th><th>Can create ops</th><th>Added</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div id="roles-empty" class="empty hidden">No chief entries yet.</div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script src="/config.js"></script>
+<script>
+(function () {
+  const API     = window.BACKEND_URL;
+  const TOKEN_K = "spec_token";
+  const whoEl   = document.getElementById("who");
+  const banner  = document.getElementById("status-banner");
+  const appEl   = document.getElementById("app");
+
+  (function captureToken() {
+    const p = new URLSearchParams(location.search);
+    const t = p.get("token");
+    if (t) {
+      localStorage.setItem(TOKEN_K, t);
+      p.delete("token");
+      const qs = p.toString();
+      history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
+    }
+  })();
+
+  function token() { return localStorage.getItem(TOKEN_K) || ""; }
+  function authHdr() { return { Authorization: "Bearer " + token() }; }
+  function redirectToLogin() {
+    const next = encodeURIComponent(location.pathname);
+    location.href = API + "/auth/google?next=" + next;
+  }
+  function showBanner(cls, msg) {
+    banner.className = "banner " + cls;
+    banner.textContent = msg;
+    banner.classList.remove("hidden");
+  }
+
+  document.getElementById("signout").onclick = function () {
+    localStorage.removeItem(TOKEN_K);
+    location.reload();
+  };
+
+  async function bootstrap() {
+    if (!token()) return redirectToLogin();
+    let res;
+    try {
+      res = await fetch(API + "/auth/verify?token=" + encodeURIComponent(token()));
+    } catch (e) { return showBanner("err", "Network error: " + e.message); }
+    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
+    if (!res.ok) { return showBanner("err", "Auth check failed: " + res.status); }
+    const { user } = await res.json();
+    if (user.role !== "general") {
+      return showBanner("err",
+        `Signed in as ${user.email} (role: ${user.role || "none"}). Only generals can access this page.`);
+    }
+    whoEl.textContent = `${user.email} · general`;
+    appEl.classList.remove("hidden");
+    loadOps();
+    loadRoles();
+  }
+
+  // ========== TABS ==========
+  document.querySelectorAll(".tab").forEach(t => {
+    t.onclick = () => {
+      document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
+      t.classList.add("active");
+      document.getElementById("tab-ops").classList.toggle("hidden", t.dataset.tab !== "ops");
+      document.getElementById("tab-chiefs").classList.toggle("hidden", t.dataset.tab !== "chiefs");
+    };
+  });
+
+  // ========== OPS ==========
+  let opsCache = [];
+  async function loadOps() {
+    const res = await fetch(API + "/api/ops", { headers: authHdr() });
+    if (!res.ok) { showBanner("err", "Failed to load ops: " + res.status); return; }
+    const { rows } = await res.json();
+    opsCache = rows;
+    const tbody = document.querySelector("#ops-table tbody");
+    tbody.innerHTML = "";
+    document.getElementById("ops-empty").classList.toggle("hidden", rows.length > 0);
+
+    // Fetch assignment counts per op in parallel
+    const countsMap = {};
+    await Promise.all(rows.map(async op => {
+      const r = await fetch(API + "/api/ops/" + encodeURIComponent(op.op_id) + "/assignments", { headers: authHdr() });
+      if (!r.ok) { countsMap[op.op_id] = { chief: 0, captain: 0 }; return; }
+      const j = await r.json();
+      countsMap[op.op_id] = j.rows.reduce((a,c) => (a[c.role]++, a), { chief: 0, captain: 0 });
+    }));
+
+    rows.forEach(op => {
+      const counts = countsMap[op.op_id];
+      const reporterUrl = location.origin + "/r/" + op.op_id;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${esc(op.factory_name)}<br><code>${esc(op.op_id)}</code></td>
+        <td>${esc(op.shift)}</td>
+        <td>${op.poc1_name ? esc(op.poc1_name) : "—"}<br><code>${esc(op.poc1_phone || "")}</code></td>
+        <td class="url-cell">${esc(reporterUrl)}</td>
+        <td><span class="pill ${op.is_active ? 'ok' : 'off'}">${op.is_active ? 'Active' : 'Inactive'}</span></td>
+        <td><span class="pill ${counts.chief ? 'ok' : 'mute'}">${counts.chief}</span></td>
+        <td><span class="pill mute">${counts.captain}</span></td>
+        <td><div class="inline-actions">
+          <button class="btn tiny copy-url" data-url="${esc(reporterUrl)}">Copy URL</button>
+          <button class="btn tiny assign" data-id="${esc(op.op_id)}">Assignments</button>
+          <button class="btn tiny toggle" data-id="${esc(op.op_id)}" data-active="${op.is_active}">${op.is_active ? 'Deactivate' : 'Activate'}</button>
+        </div></td>
+      `;
+      tbody.appendChild(tr);
+      // assignment panel row (starts hidden)
+      const panelTr = document.createElement("tr");
+      panelTr.className = "panel-row hidden";
+      panelTr.dataset.for = op.op_id;
+      panelTr.innerHTML = `<td colspan="8"><div class="assignments-panel" data-host="${esc(op.op_id)}">loading…</div></td>`;
+      tbody.appendChild(panelTr);
+    });
+    tbody.querySelectorAll(".copy-url").forEach(b => b.onclick = () => {
+      navigator.clipboard.writeText(b.dataset.url).then(() => flash(b, "Copied"));
+    });
+    tbody.querySelectorAll(".toggle").forEach(b => b.onclick = () => toggleOpActive(b.dataset.id, b.dataset.active === "true"));
+    tbody.querySelectorAll(".assign").forEach(b => b.onclick = () => toggleAssignPanel(b.dataset.id));
+  }
+
+  async function toggleOpActive(op_id, currentlyActive) {
+    const res = await fetch(API + "/api/ops/" + encodeURIComponent(op_id), {
+      method: "PATCH", headers: { ...authHdr(), "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: !currentlyActive }),
+    });
+    if (!res.ok) { alert("Toggle failed: " + res.status); return; }
+    loadOps();
+  }
+
+  async function toggleAssignPanel(op_id) {
+    const row = document.querySelector(`tr.panel-row[data-for="${cssEscape(op_id)}"]`);
+    if (!row) return;
+    row.classList.toggle("hidden");
+    if (!row.classList.contains("hidden")) await renderAssignPanel(op_id);
+  }
+
+  async function renderAssignPanel(op_id) {
+    const host = document.querySelector(`.assignments-panel[data-host="${cssEscape(op_id)}"]`);
+    host.innerHTML = "loading…";
+    const res = await fetch(API + "/api/ops/" + encodeURIComponent(op_id) + "/assignments", { headers: authHdr() });
+    if (!res.ok) { host.innerHTML = "Failed to load assignments: " + res.status; return; }
+    const { rows } = await res.json();
+    const chiefRows = rows.filter(r => r.role === "chief");
+    const captainRows = rows.filter(r => r.role === "captain");
+    host.innerHTML = `
+      <h4>Chiefs (${chiefRows.length})</h4>
+      <div class="chiefs-list">${chiefRows.map(assignRow).join("") || '<div class="empty">no chiefs assigned</div>'}</div>
+      <h4 style="margin-top:14px">Captains (${captainRows.length})</h4>
+      <div class="captains-list">${captainRows.map(assignRow).join("") || '<div class="empty">no captains assigned</div>'}</div>
+      <h4 style="margin-top:14px">Assign a chief to this op</h4>
+      <div class="assign-form">
+        <input type="email" placeholder="chief@example.com" class="new-chief-email" />
+        <span style="font-size:11px;color:var(--muted);align-self:center">role: chief</span>
+        <button class="btn primary new-chief-add">Assign</button>
+      </div>
+    `;
+    host.querySelectorAll(".rm-assign").forEach(b => b.onclick = () => removeAssign(op_id, b.dataset.email));
+    host.querySelector(".new-chief-add").onclick = () => addAssign(op_id, host.querySelector(".new-chief-email").value, "chief");
+  }
+
+  function assignRow(r) {
+    return `
+      <div class="assign-row">
+        <span>${esc(r.email)}</span>
+        <span class="pill ${r.role === 'chief' ? 'ok' : 'mute'}">${esc(r.role)}</span>
+        <button class="btn tiny danger rm-assign" data-email="${esc(r.email)}">Remove</button>
+      </div>
+    `;
+  }
+
+  async function addAssign(op_id, email, role) {
+    email = (email || "").trim().toLowerCase();
+    if (!email) { alert("email required"); return; }
+    const res = await fetch(API + "/api/ops/" + encodeURIComponent(op_id) + "/assignments", {
+      method: "POST", headers: { ...authHdr(), "Content-Type": "application/json" },
+      body: JSON.stringify({ email, role }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { alert("Assign failed: " + (j.detail || res.status)); return; }
+    await renderAssignPanel(op_id);
+    loadRoles();
+    loadOps();
+  }
+
+  async function removeAssign(op_id, email) {
+    if (!confirm(`Remove ${email} from this op?`)) return;
+    const res = await fetch(API + "/api/ops/" + encodeURIComponent(op_id) + "/assignments/" + encodeURIComponent(email), {
+      method: "DELETE", headers: authHdr(),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { alert("Remove failed: " + (j.detail || res.status)); return; }
+    await renderAssignPanel(op_id);
+    loadOps();
+  }
+
+  document.getElementById("show-new-op").onclick = () => {
+    document.getElementById("new-op-card").classList.remove("hidden");
+    document.getElementById("f-factory").focus();
+  };
+  document.getElementById("cancel-new-op").onclick = () => {
+    document.getElementById("new-op-card").classList.add("hidden");
+  };
+
+  document.getElementById("submit-op").onclick = async function () {
+    const payload = {
+      factory_name:           val("f-factory"),
+      shift:                  val("f-shift"),
+      location:               val("f-location") || null,
+      map_link:               val("f-map") || null,
+      sales_team_name:        val("f-sales") || null,
+      poc1_name:              val("f-poc1n") || null,
+      poc1_phone:             val("f-poc1p") || null,
+      poc1_role:              val("f-poc1r") || null,
+      poc2_name:              val("f-poc2n") || null,
+      poc2_phone:             val("f-poc2p") || null,
+      poc2_role:              val("f-poc2r") || null,
+      shift_start:            val("f-shift-s") || null,
+      shift_end:              val("f-shift-e") || null,
+      reporting_time:         val("f-rep-t") || null,
+      deployment_start:       val("f-dep-s") || null,
+      collection_start:       val("f-col-s") || null,
+      report_submission_time: val("f-rep-s") || null,
+      final_closing_time:     val("f-close") || null,
+    };
+    if (!payload.factory_name || !payload.shift) { alert("factory_name and shift are required"); return; }
+    this.disabled = true;
+    const origText = this.textContent;
+    this.textContent = "Creating…";
+    try {
+      const res = await fetch(API + "/api/ops", {
+        method: "POST", headers: { ...authHdr(), "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) { alert("Create failed: " + (j.detail || res.status)); return; }
+      document.querySelectorAll("#new-op-card input").forEach(i => i.value = "");
+      document.getElementById("new-op-card").classList.add("hidden");
+      loadOps();
+    } finally {
+      this.disabled = false;
+      this.textContent = origText;
+    }
+  };
+
+  // ========== CHIEFS ==========
+  async function loadRoles() {
+    const res = await fetch(API + "/api/roles", { headers: authHdr() });
+    if (!res.ok) { showBanner("err", "Failed to load chiefs: " + res.status); return; }
+    const { rows } = await res.json();
+    const tbody = document.querySelector("#roles-table tbody");
+    tbody.innerHTML = "";
+    document.getElementById("roles-empty").classList.toggle("hidden", rows.length > 0);
+    rows.forEach(r => {
+      const tr = document.createElement("tr");
+      const isGeneral = r.role === "general";
+      tr.innerHTML = `
+        <td>${esc(r.email)}</td>
+        <td><span class="pill ${isGeneral ? 'ok' : ''}">${esc(r.role)}</span></td>
+        <td>
+          <input type="checkbox" class="cco-toggle" data-email="${esc(r.email)}" ${r.can_create_ops ? 'checked' : ''} ${isGeneral ? 'disabled' : ''} />
+          ${isGeneral ? '<span class="pill mute">always</span>' : ''}
+        </td>
+        <td><code>${r.added_at ? r.added_at.slice(0,10) : ''}</code></td>
+        <td><div class="inline-actions">
+          ${isGeneral ? '' : `<button class="btn tiny danger remove" data-email="${esc(r.email)}">Remove</button>`}
+        </div></td>
+      `;
+      tbody.appendChild(tr);
+    });
+    tbody.querySelectorAll(".remove").forEach(b => b.onclick = () => removeRole(b.dataset.email));
+    tbody.querySelectorAll(".cco-toggle").forEach(cb => cb.onchange = () => patchCCO(cb.dataset.email, cb.checked));
+  }
+
+  document.getElementById("add-role").onclick = async function () {
+    const email = val("r-email").trim().toLowerCase();
+    const cco   = document.getElementById("r-cco").checked;
+    if (!email) { alert("email required"); return; }
+    this.disabled = true;
+    try {
+      const res = await fetch(API + "/api/roles", {
+        method: "POST", headers: { ...authHdr(), "Content-Type": "application/json" },
+        body: JSON.stringify({ email, can_create_ops: cco }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) { alert("Add failed: " + (j.detail || res.status)); return; }
+      document.getElementById("r-email").value = "";
+      document.getElementById("r-cco").checked = false;
+      loadRoles();
+    } finally { this.disabled = false; }
+  };
+
+  async function patchCCO(email, val) {
+    const res = await fetch(API + "/api/roles/" + encodeURIComponent(email), {
+      method: "PATCH", headers: { ...authHdr(), "Content-Type": "application/json" },
+      body: JSON.stringify({ can_create_ops: val }),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { alert("Update failed: " + (j.detail || res.status)); loadRoles(); }
+  }
+
+  async function removeRole(email) {
+    if (!confirm(`Remove chief ${email}? (also drops their op assignments)`)) return;
+    const res = await fetch(API + "/api/roles/" + encodeURIComponent(email), {
+      method: "DELETE", headers: authHdr(),
+    });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) { alert("Remove failed: " + (j.detail || res.status)); return; }
+    loadRoles();
+    loadOps();
+  }
+
+  // ========== HELPERS ==========
+  function val(id) { return document.getElementById(id).value; }
+  function esc(s)  { return String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function cssEscape(s) { return String(s).replace(/["\\]/g, "\\$&"); }
+  function flash(el, msg) {
+    const orig = el.textContent;
+    el.textContent = msg;
+    setTimeout(() => el.textContent = orig, 1200);
+  }
+
+  bootstrap();
+})();
+</script>
+</body>
+</html>
