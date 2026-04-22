@@ -28,7 +28,7 @@
   .eyebrow { font-size:10px; letter-spacing:.22em; text-transform:uppercase; color:var(--hint); margin-bottom:14px; }
   .hero h1 { font-size:28px; font-weight:600; letter-spacing:-0.01em; line-height:1.15; margin-bottom:10px; }
   .hero p { color:var(--muted); max-width:620px; font-size:13px; }
-  .cards { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .cards { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:3rem; }
   @media (max-width:640px) { .cards { grid-template-columns:1fr; } }
   a.card {
     display:block; text-decoration:none; color:inherit;
@@ -41,6 +41,16 @@
   a.card p { font-size:12px; color:var(--muted); line-height:1.55; margin-bottom:14px; }
   a.card .cta { font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--text); }
   a.card .cta::after { content:" →"; color:var(--muted); }
+
+  .roles { margin-bottom:2.5rem; }
+  .roles h2 { font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--hint); margin-bottom:14px; }
+  .role { display:grid; grid-template-columns:120px 1fr; gap:14px; padding:14px 0; border-top:1px solid var(--border); }
+  .role:last-child { border-bottom:1px solid var(--border); }
+  .role .label { font-size:11px; letter-spacing:.14em; text-transform:uppercase; }
+  .role .label .rank { display:inline-block; font-size:9px; color:var(--hint); margin-left:6px; letter-spacing:.16em; }
+  .role .desc { color:var(--muted); font-size:12px; line-height:1.55; }
+  .role .desc strong { color:var(--text); font-weight:500; }
+  .role.marshal .label { color:var(--green); }
   footer { margin-top:auto; padding-top:2rem; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--hint); }
   footer a { color:var(--muted); text-decoration:none; }
   footer a:hover { color:var(--text); }
@@ -51,7 +61,7 @@
   <section class="hero">
     <div class="eyebrow">// SpecOps</div>
     <h1>Welcome.</h1>
-    <p>Pick a door below. Everything that keeps the team running lives here — onboarding for new contributors and the ops workspace for chiefs, captains, and generals.</p>
+    <p>Pick a door below. Everything that keeps the team running lives here — onboarding for new contributors and the ops workspace for the field hierarchy.</p>
   </section>
 
   <section class="cards">
@@ -65,9 +75,55 @@
     <a class="card" href="/ops.html">
       <div class="tag">02 · Google Sign-In</div>
       <h2>Ops workspace</h2>
-      <p>For generals, chiefs, and captains. Manage operations, roster chiefs and captains, submit daily attendance reports.</p>
+      <p>For marshals, generals, chiefs, captains, and viewers. Google routes you to the right surface based on your role.</p>
       <span class="cta">Continue</span>
     </a>
+  </section>
+
+  <section class="roles">
+    <h2>// Who does what</h2>
+
+    <div class="role marshal">
+      <div class="label">Marshal <span class="rank">top</span></div>
+      <div class="desc">
+        <strong>Anything anyone below can do</strong>, plus add/remove other marshals, generals, chiefs, and viewers. Full read + write on dashboards and analytics.
+      </div>
+    </div>
+
+    <div class="role">
+      <div class="label">General</div>
+      <div class="desc">
+        Create and edit operations. Add chiefs and viewers. Assign chiefs and captains to operations. Full read + write everywhere <em>except</em> the marshal-level role management.
+      </div>
+    </div>
+
+    <div class="role">
+      <div class="label">Chief</div>
+      <div class="desc">
+        Runs one or more operations. Edits their assigned op's details, adds captains to those ops, and submits daily reports + attendance. Sees only their assigned ops in the dashboard.
+      </div>
+    </div>
+
+    <div class="role">
+      <div class="label">Captain</div>
+      <div class="desc">
+        Fallback reporter for when the chief is away. Submits daily reports + attendance for the ops they're assigned to.
+      </div>
+    </div>
+
+    <div class="role">
+      <div class="label">Viewer</div>
+      <div class="desc">
+        Read-only dashboard + analytics access. Sees everything across India but cannot create ops, assign anyone, or submit reports. Good for exec visibility.
+      </div>
+    </div>
+
+    <div class="role">
+      <div class="label">Operator</div>
+      <div class="desc">
+        Not a login role — just a label on attendance rows. Operators show up on-ground and their photos + location are recorded by the chief/captain at submit time.
+      </div>
+    </div>
   </section>
 
   <footer>

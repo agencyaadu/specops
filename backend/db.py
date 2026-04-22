@@ -151,13 +151,13 @@ CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance(report_date);
 CREATE_BOT_ROLES = """
 CREATE TABLE IF NOT EXISTS bot_roles (
     email           TEXT PRIMARY KEY ,
-    role            TEXT NOT NULL CHECK (role IN ('owner','general','chief','captain','viewer')) ,
+    role            TEXT NOT NULL CHECK (role IN ('marshal','general','chief','captain','viewer')) ,
     can_create_ops  BOOLEAN NOT NULL DEFAULT FALSE ,
     added_at        TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE bot_roles ADD COLUMN IF NOT EXISTS can_create_ops BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE bot_roles DROP CONSTRAINT IF EXISTS bot_roles_role_check;
-ALTER TABLE bot_roles ADD CONSTRAINT bot_roles_role_check CHECK (role IN ('owner','general','chief','captain','viewer'));
+ALTER TABLE bot_roles ADD CONSTRAINT bot_roles_role_check CHECK (role IN ('marshal','general','chief','captain','viewer'));
 """
 
 CREATE_NOTES = """
@@ -203,9 +203,15 @@ async def init_db(pool: asyncpg.Pool):
         await _seed_admins(conn)
 
 async def _seed_admins(conn: asyncpg.Connection):
-    # OWNER_EMAILS takes precedence — owners can add/remove generals.
-    # GENERAL_EMAILS remains for backward compat + secondary generals.
-    for env_var, role in (("OWNER_EMAILS", "owner"), ("GENERAL_EMAILS", "general")):
+    # MARSHAL_EMAILS takes precedence — marshals can add/remove generals and
+    # other marshals. GENERAL_EMAILS seeds secondary admins.
+    # OWNER_EMAILS is accepted too for backwards compatibility with the
+    # initial rollout; treated as marshal.
+    for env_var, role in (
+        ("MARSHAL_EMAILS", "marshal"),
+        ("OWNER_EMAILS",   "marshal"),   # legacy alias
+        ("GENERAL_EMAILS", "general"),
+    ):
         raw = os.environ.get(env_var, "").strip()
         if not raw:
             continue
@@ -216,9 +222,9 @@ async def _seed_admins(conn: asyncpg.Connection):
                 INSERT INTO bot_roles (email, role) VALUES ($1, $2)
                 ON CONFLICT (email) DO UPDATE SET
                     role = CASE
-                        -- never downgrade: an existing owner stays owner
-                        WHEN bot_roles.role = 'owner' THEN 'owner'
-                        WHEN EXCLUDED.role = 'owner' THEN 'owner'
+                        -- never downgrade: an existing marshal stays marshal
+                        WHEN bot_roles.role = 'marshal' THEN 'marshal'
+                        WHEN EXCLUDED.role = 'marshal' THEN 'marshal'
                         ELSE EXCLUDED.role
                     END
                 """,

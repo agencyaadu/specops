@@ -179,7 +179,8 @@
               <select id="r-role">
                 <option value="chief" selected>chief</option>
                 <option value="viewer">viewer (dashboard + analytics only)</option>
-                <option value="general" class="owner-only">general (admin)</option>
+                <option value="general" class="marshal-only">general (admin)</option>
+                <option value="marshal" class="marshal-only">marshal (top-tier)</option>
               </select>
             </div>
             <div class="field" id="cco-field">
@@ -251,14 +252,14 @@
     if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
     if (!res.ok) { return showBanner("err", "Auth check failed: " + res.status); }
     const { user } = await res.json();
-    if (!["owner", "general"].includes(user.role)) {
+    if (!["marshal", "general"].includes(user.role)) {
       return showBanner("err",
-        `Signed in as ${user.email} (role: ${user.role || "none"}). Only owners and generals can access this page.`);
+        `Signed in as ${user.email} (role: ${user.role || "none"}). Only marshals and generals can access this page.`);
     }
     whoEl.textContent = `${user.email} · ${user.role}`;
-    // owner gets the 'general' option in the Add Role dropdown; general does not.
-    if (user.role !== "owner") {
-      document.querySelectorAll(".owner-only").forEach(el => el.remove());
+    // marshal gets 'general' and 'marshal' options in the Add Role dropdown.
+    if (user.role !== "marshal") {
+      document.querySelectorAll(".marshal-only").forEach(el => el.remove());
     }
     window._currentUserRole = user.role;
     appEl.classList.remove("hidden");
@@ -455,16 +456,17 @@
     const currentRole = window._currentUserRole;
     rows.forEach(r => {
       const tr = document.createElement("tr");
-      const isOwner   = r.role === "owner";
+      const isMarshal = r.role === "marshal";
       const isGeneral = r.role === "general";
-      const ccoAlwaysTrue = isOwner;            // owner always implicitly can create
-      const ccoDisabled   = isOwner || (isGeneral && currentRole !== "owner");
-      // Caller must outrank target to remove it (owner > general > chief/viewer).
-      const canRemove = !isOwner && (
-        (currentRole === "owner") ||
-        (currentRole === "general" && !isGeneral)
+      const ccoAlwaysTrue = isMarshal;                 // marshal always implicitly can create
+      const ccoDisabled   = isMarshal || (isGeneral && currentRole !== "marshal");
+      // Caller must outrank target to remove it (marshal > general > chief/viewer).
+      // Marshal can remove other marshals; general cannot touch marshal or other generals.
+      const canRemove = (
+        (currentRole === "marshal") ||
+        (currentRole === "general" && !isMarshal && !isGeneral)
       );
-      const pillClass = isOwner ? "ok" : isGeneral ? "ok" : "";
+      const pillClass = isMarshal ? "ok" : isGeneral ? "ok" : "";
       tr.innerHTML = `
         <td>${esc(r.email)}</td>
         <td><span class="pill ${pillClass}">${esc(r.role)}</span></td>

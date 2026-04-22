@@ -13,7 +13,7 @@ router = APIRouter()
 
 IST = ZoneInfo("Asia/Kolkata")
 
-reporter_or_admin = require_current_role("owner", "general", "chief", "captain")
+reporter_or_admin = require_current_role("marshal", "general", "chief", "captain")
 
 def today_ist() -> date:
     return datetime.now(IST).date()

@@ -16,9 +16,9 @@ _IST = ZoneInfo("Asia/Kolkata")
 router = APIRouter()
 
 # General OR chief (we'll branch on who can do what inside each handler)
-general_or_chief = require_current_role("owner", "general", "chief")
-any_role         = require_current_role("owner", "general", "chief", "captain")
-general_only     = require_current_role("owner", "general")
+general_or_chief = require_current_role("marshal", "general", "chief")
+any_role         = require_current_role("marshal", "general", "chief", "captain")
+general_only     = require_current_role("marshal", "general")
 
 def _slugify(s: str) -> str:
     s = re.sub(r"[^A-Za-z0-9]+", "-", s.strip().lower())
@@ -91,7 +91,7 @@ def _row_out(row) -> dict:
 @router.post("")
 async def create_op(body: OpIn, request: Request, claims: dict = Depends(general_or_chief)):
     # Chiefs must have can_create_ops granted; generals always can.
-    if claims["role"] not in ("owner", "general") and not claims.get("can_create_ops"):
+    if claims["role"] not in ("marshal", "general") and not claims.get("can_create_ops"):
         raise HTTPException(403, "you are not permissioned to create ops")
 
     if not body.factory_name.strip() or not body.shift.strip():
@@ -188,7 +188,7 @@ async def list_ops(
     extras_sql = (", " + ", ".join(select_extras)) if select_extras else ""
     joins_sql  = "\n".join(joins)
 
-    if claims["role"] in ("owner", "general"):
+    if claims["role"] in ("marshal", "general"):
         sql = f"""
             SELECT o.*{extras_sql}
               FROM operations o
@@ -225,7 +225,7 @@ async def list_ops(
 
 @router.patch("/{op_id}")
 async def patch_op(op_id: str, body: OpPatch, request: Request, claims: dict = Depends(general_or_chief)):
-    if claims["role"] not in ("owner", "general"):
+    if claims["role"] not in ("marshal", "general"):
         # chief must be assigned to this op
         if not await has_op_access(request, claims, op_id):
             raise HTTPException(403, "not assigned to this operation")

@@ -15,7 +15,7 @@ router = APIRouter()
 
 IST = ZoneInfo("Asia/Kolkata")
 
-dashboard_roles = require_current_role("owner", "general", "chief", "viewer")
+dashboard_roles = require_current_role("marshal", "general", "chief", "viewer")
 
 
 def _parse_date(s: Optional[str]) -> date:
@@ -32,7 +32,7 @@ def _op_scope_sql(role: str) -> tuple[str, int]:
 
     general + viewer see all ops; chief sees only assigned ops.
     """
-    if role in ("owner", "general", "viewer"):
+    if role in ("marshal", "general", "viewer"):
         return "", 1
     return (
         "JOIN op_assignments asn ON asn.op_id = o.op_id AND asn.email = $1",
@@ -53,7 +53,7 @@ async def dashboard(
 
     scope_join, date_param = _op_scope_sql(role)
     params = ([target]
-              if role in ("owner", "general", "viewer")
+              if role in ("marshal", "general", "viewer")
               else [email, target])
 
     sql = f"""
@@ -149,7 +149,7 @@ async def attendance_list(
 ):
     target = _parse_date(date_)
     # general and viewer see every op's attendance; chief needs assignment.
-    if claims["role"] not in ("owner", "general", "viewer"):
+    if claims["role"] not in ("marshal", "general", "viewer"):
         if not await has_op_access(request, claims, op_id):
             raise HTTPException(403, "not assigned to this operation")
 
