@@ -316,7 +316,10 @@
         <div class="field"><label>Phone (10-digit)</label><input type="text" class="p-phone" inputmode="numeric" maxlength="10" pattern="[6-9][0-9]{9}" required /></div>
       </div>
       <div class="row2">
-        <div class="field"><label>PAN</label><input type="text" class="p-pan" maxlength="10" pattern="[A-Za-z]{5}[0-9]{4}[A-Za-z]" style="text-transform:uppercase" required /></div>
+        <div class="field">
+          <label>PAN or Aadhaar</label>
+          <input type="text" class="p-pan" maxlength="14" placeholder="ABCDE1234F  or  12-digit Aadhaar" style="text-transform:uppercase" required />
+        </div>
         <div class="field"><label>Role</label>
           <select class="p-role">
             <option value="operator" selected>operator</option>
@@ -490,7 +493,7 @@
     push([]);
 
     // Section 3: attendance
-    push(["Full name","Phone","PAN","Role","Browser lat","Browser lng","Accuracy m","Has photo"]);
+    push(["Full name","Phone","PAN or Aadhaar","Role","Browser lat","Browser lng","Accuracy m","Has photo"]);
     att.forEach(p => push([
       p.full_name, p.phone, p.pan, p.person_role,
       p.browser_lat, p.browser_lng, p.browser_accuracy_m ?? "",
@@ -553,13 +556,18 @@
       const p = people[i];
       const name  = p.querySelector(".p-name").value.trim();
       const phone = p.querySelector(".p-phone").value.trim();
-      const pan   = p.querySelector(".p-pan").value.trim().toUpperCase();
+      const pan   = p.querySelector(".p-pan").value.replace(/[\s-]+/g, "").toUpperCase();
       const personRole = p.querySelector(".p-role").value;
       const fileEl = p.querySelector(".p-photo");
       const file  = fileEl.files[0] || null;
-      if (!name || !phone || !pan) { alert(`Person ${i+1}: fill name, phone, and PAN.`); return null; }
+      if (!name || !phone || !pan) { alert(`Person ${i+1}: fill name, phone, and PAN/Aadhaar.`); return null; }
       if (!/^[6-9]\d{9}$/.test(phone)) { alert(`Person ${i+1}: invalid phone`); return null; }
-      if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan)) { alert(`Person ${i+1}: invalid PAN`); return null; }
+      const isPan     = /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan);
+      const isAadhaar = /^\d{12}$/.test(pan);
+      if (!isPan && !isAadhaar) {
+        alert(`Person ${i+1}: enter a valid PAN (ABCDE1234F) or 12-digit Aadhaar.`);
+        return null;
+      }
       if (!["chief","captain","operator"].includes(personRole)) { alert(`Person ${i+1}: invalid role`); return null; }
       if (!p.dataset.brLat) { alert(`Person ${i+1}: device location missing. Tap Retry on the location row.`); return null; }
       attendance.push({
