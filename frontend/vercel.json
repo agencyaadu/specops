@@ -1,12 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "cleanUrls": true,
   "rewrites": [
     { "source": "/r/:op_id",    "destination": "/r.html" },
     { "source": "/ops",         "destination": "/ops.html" },
     { "source": "/ops/general", "destination": "/ops-admin.html" },
     { "source": "/ops/chief",   "destination": "/chief-admin.html" },
-    { "source": "/ops/captain", "destination": "/captain.html" }
+    { "source": "/ops/captain", "destination": "/captain.html" },
+    { "source": "/onboard",     "destination": "/onboard.html" },
+    { "source": "/admin",       "destination": "/admin.html" }
   ],
   "headers": [
     {
