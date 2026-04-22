@@ -43,7 +43,17 @@
   a.card .cta::after { content:" →"; color:var(--muted); }
 
   .roles { margin-bottom:2.5rem; }
-  .roles h2 { font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--hint); margin-bottom:14px; }
+  .roles .roles-toggle {
+    font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase;
+    border:1px solid var(--border-md); background:transparent; color:var(--text);
+    padding:9px 16px; cursor:pointer; transition:border-color .12s, background .12s;
+  }
+  .roles .roles-toggle:hover { border-color:var(--accent); background:var(--surface); }
+  .roles .roles-toggle::after { content:" ↓"; color:var(--muted); }
+  .roles.open .roles-toggle::after { content:" ↑"; }
+  .roles .roles-body { margin-top:18px; display:none; }
+  .roles.open .roles-body { display:block; }
+  .roles h2 { font-size:10px; letter-spacing:.22em; text-transform:uppercase; color:var(--hint); margin-bottom:14px; }
   .role { display:grid; grid-template-columns:120px 1fr; gap:14px; padding:14px 0; border-top:1px solid var(--border); }
   .role:last-child { border-bottom:1px solid var(--border); }
   .role .label { font-size:11px; letter-spacing:.14em; text-transform:uppercase; }
@@ -80,51 +90,67 @@
     </a>
   </section>
 
-  <section class="roles">
-    <h2>// Who does what</h2>
+  <section class="roles" id="roles">
+    <button type="button" class="roles-toggle" id="roles-toggle" aria-expanded="false" aria-controls="roles-body">
+      Roles guide
+    </button>
+    <div class="roles-body" id="roles-body">
+      <h2>// Who does what</h2>
 
-    <div class="role marshal">
-      <div class="label">Marshal <span class="rank">top</span></div>
-      <div class="desc">
-        <strong>Anything anyone below can do</strong>, plus add/remove other marshals, generals, chiefs, and viewers. Full read + write on dashboards and analytics.
+      <div class="role marshal">
+        <div class="label">Marshal <span class="rank">top</span></div>
+        <div class="desc">
+          <strong>Anything anyone below can do</strong>, plus add/remove other marshals, generals, chiefs, and viewers. Full read + write on dashboards and analytics.
+        </div>
       </div>
-    </div>
 
-    <div class="role">
-      <div class="label">General</div>
-      <div class="desc">
-        Create and edit operations. Add chiefs and viewers. Assign chiefs and captains to operations. Full read + write everywhere <em>except</em> the marshal-level role management.
+      <div class="role">
+        <div class="label">General</div>
+        <div class="desc">
+          Create and edit operations. Add chiefs and viewers. Assign chiefs and captains to operations. Full read + write everywhere <em>except</em> the marshal-level role management.
+        </div>
       </div>
-    </div>
 
-    <div class="role">
-      <div class="label">Chief</div>
-      <div class="desc">
-        Runs one or more operations. Edits their assigned op's details, adds captains to those ops, and submits daily reports + attendance. Sees only their assigned ops in the dashboard.
+      <div class="role">
+        <div class="label">Chief</div>
+        <div class="desc">
+          Runs one or more operations. Edits their assigned op's details, adds captains to those ops, and submits daily reports + attendance. Sees only their assigned ops in the dashboard.
+        </div>
       </div>
-    </div>
 
-    <div class="role">
-      <div class="label">Captain</div>
-      <div class="desc">
-        Fallback reporter for when the chief is away. Submits daily reports + attendance for the ops they're assigned to.
+      <div class="role">
+        <div class="label">Captain</div>
+        <div class="desc">
+          Fallback reporter for when the chief is away. Submits daily reports + attendance for the ops they're assigned to.
+        </div>
       </div>
-    </div>
 
-    <div class="role">
-      <div class="label">Viewer</div>
-      <div class="desc">
-        Read-only dashboard + analytics access. Sees everything across India but cannot create ops, assign anyone, or submit reports. Good for exec visibility.
+      <div class="role">
+        <div class="label">Viewer</div>
+        <div class="desc">
+          Read-only dashboard + analytics access. Sees everything across India but cannot create ops, assign anyone, or submit reports. Good for exec visibility.
+        </div>
       </div>
-    </div>
 
-    <div class="role">
-      <div class="label">Operator</div>
-      <div class="desc">
-        Not a login role — just a label on attendance rows. Operators show up on-ground and their photos + location are recorded by the chief/captain at submit time.
+      <div class="role">
+        <div class="label">Operator</div>
+        <div class="desc">
+          Not a login role — just a label on attendance rows. Operators show up on-ground and their photos + location are recorded by the chief/captain at submit time.
+        </div>
       </div>
     </div>
   </section>
+
+  <script>
+    (function () {
+      const wrap = document.getElementById("roles");
+      const btn  = document.getElementById("roles-toggle");
+      btn.addEventListener("click", () => {
+        const open = wrap.classList.toggle("open");
+        btn.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+    })();
+  </script>
 
   <footer>
     <span>SpecOps</span>

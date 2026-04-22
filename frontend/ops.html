@@ -115,6 +115,7 @@
     if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
     if (!res.ok) return showBanner("err", "Auth check failed: " + res.status);
     const { user } = await res.json();
+    if (user.role === "owner") user.role = "marshal";  // legacy JWT compat
 
     whoEl.textContent = `${user.email} · ${user.role || "no role"}`;
     signoutBtn.classList.remove("hidden");

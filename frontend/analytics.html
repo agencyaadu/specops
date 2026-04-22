@@ -191,13 +191,17 @@
     if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
     if (!res.ok) return showBanner("err", "Auth check failed: " + res.status);
     const { user } = await res.json();
-    if (!["general","chief"].includes(user.role)) {
-      return showBanner("err", `Signed in as ${user.email} (role: ${user.role || "none"}). Only generals and chiefs can see analytics.`);
+    if (user.role === "owner") user.role = "marshal";  // legacy JWT compat
+    if (!["marshal","general","chief","viewer"].includes(user.role)) {
+      return showBanner("err", `Signed in as ${user.email} (role: ${user.role || "none"}). Analytics is for marshals, generals, chiefs, and viewers.`);
     }
     whoEl.textContent = `${user.email} · ${user.role}`;
+    const adminHref = ["marshal","general"].includes(user.role) ? "/ops-admin.html"
+                    : user.role === "chief" ? "/chief-admin.html"
+                    : null;
     nav.innerHTML = `
       <a href="/dashboard.html">Dashboard</a>
-      <a href="${user.role === 'general' ? '/ops-admin.html' : '/chief-admin.html'}">← Admin</a>
+      ${adminHref ? `<a href="${adminHref}">← Admin</a>` : ""}
     `;
 
     dTo.value   = todayIsoIST();

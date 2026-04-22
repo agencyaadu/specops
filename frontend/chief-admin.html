@@ -187,7 +187,8 @@
     const { user } = await res.json();
     currentUser = user;
 
-    if (!["chief","general"].includes(user.role)) {
+    if (user.role === "owner") user.role = "marshal";  // legacy JWT compat
+    if (!["chief","general","marshal"].includes(user.role)) {
       return showBanner("err",
         `Signed in as ${user.email} (role: ${user.role || "none"}). Chiefs and generals only.`);
     }
@@ -196,7 +197,7 @@
 
     // Fetch current chief perms to decide whether to show "+ New Op"
     // (generals always can; chiefs need can_create_ops)
-    let canCreate = user.role === "general";
+    let canCreate = ["marshal","general"].includes(user.role);
     if (user.role === "chief") {
       const rr = await fetch(API + "/api/roles", { headers: authHdr() }).catch(() => null);
       // chiefs aren't allowed to call /api/roles, so probe POST /api/ops by optimistic UI: just attempt create on click and handle 403.

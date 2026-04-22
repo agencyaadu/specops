@@ -39,6 +39,10 @@ async def google_login(next: Optional[str] = None):
         "response_type": "code",
         "scope":         "openid email profile",
         "access_type":   "offline",
+        # Always show the account chooser so users signed into multiple Gmail
+        # accounts can pick the right one (e.g. work vs personal, or switch
+        # away from the currently selected account).
+        "prompt":        "select_account",
     }
     if next:
         params["state"] = next

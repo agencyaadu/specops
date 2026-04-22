@@ -83,6 +83,8 @@
     <div class="meta" id="meta">—</div>
   </div>
 
+  <div class="quick-nav hidden" id="quick-nav" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1rem"></div>
+
   <div id="status-banner" class="hidden"></div>
 
   <div id="app" class="hidden">
@@ -215,12 +217,35 @@
 
     const ctx = await res.json();
     renderOp(ctx);
+    renderQuickNav(ctx);
     if (ctx.already_submitted) {
       showBanner("ok", "Today's report was already submitted for this operation. Come back tomorrow.");
       return;
     }
     appEl.classList.remove("hidden");
     addPerson();
+  }
+
+  function renderQuickNav(ctx) {
+    // ctx.my_role is injected by /api/op/{op_id} — normalise owner->marshal for legacy JWTs.
+    let role = ctx.my_role || "";
+    if (role === "owner") role = "marshal";
+    const host = document.getElementById("quick-nav");
+    const links = [];
+    // Edit op details — chiefs do this via Chief Admin for their assigned ops;
+    // generals/marshals do it via Ops Admin.
+    if (role === "chief") {
+      links.push(`<a class="btn ghost" href="/chief-admin.html" target="_blank" rel="noopener">Edit op details →</a>`);
+    } else if (["general", "marshal"].includes(role)) {
+      links.push(`<a class="btn ghost" href="/ops-admin.html" target="_blank" rel="noopener">Ops admin →</a>`);
+    }
+    if (["chief","general","marshal","viewer"].includes(role)) {
+      links.push(`<a class="btn ghost" href="/dashboard.html" target="_blank" rel="noopener">Dashboard →</a>`);
+    }
+    if (links.length) {
+      host.innerHTML = links.join("");
+      host.classList.remove("hidden");
+    }
   }
 
   function renderOp(ctx) {

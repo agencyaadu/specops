@@ -252,6 +252,7 @@
     if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
     if (!res.ok) { return showBanner("err", "Auth check failed: " + res.status); }
     const { user } = await res.json();
+    if (user.role === "owner") user.role = "marshal";  // legacy JWT compat
     if (!["marshal", "general"].includes(user.role)) {
       return showBanner("err",
         `Signed in as ${user.email} (role: ${user.role || "none"}). Only marshals and generals can access this page.`);

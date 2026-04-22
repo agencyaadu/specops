@@ -179,7 +179,8 @@
     if (!res.ok) return showBanner("err", "Auth check failed: " + res.status);
     const { user } = await res.json();
     whoEl.textContent = `${user.email} · ${user.role || "no role"}`;
-    if (!["captain","chief","general"].includes(user.role)) {
+    if (user.role === "owner") user.role = "marshal";  // legacy JWT compat
+    if (!["captain","chief","general","marshal"].includes(user.role)) {
       return showBanner("err", "No role assigned. Ask a general to add you.");
     }
     appEl.classList.remove("hidden");
