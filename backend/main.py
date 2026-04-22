@@ -58,6 +58,6 @@ app.include_router(daily.router,       prefix="/api/daily", tags=["daily"])
 app.include_router(roles.router,       prefix="/api/roles", tags=["roles"])
 app.include_router(notes.router,       prefix="/api/notes", tags=["notes"])
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health():
     return {"status": "ok"}
