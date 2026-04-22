@@ -822,7 +822,11 @@ applyThemeLabel();
 
 /* --- google oauth --- */
 function googleLogin() {
-  window.location.href = API + '/auth/google';
+  // Tell the OAuth callback to bounce us back to this page (keeps the token
+  // in the URL so checkToken() can prefill fields). Without this the callback
+  // defaults to FRONTEND_URL and users land on the welcome page instead.
+  const next = encodeURIComponent(window.location.pathname);
+  window.location.href = API + '/auth/google?next=' + next;
 }
 
 async function checkToken() {
