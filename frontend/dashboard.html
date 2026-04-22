@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard — SpecOps</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" />
+<style>
+  *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#000; --surface:#0a0a0a; --border:rgba(255,255,255,0.14); --border-md:rgba(255,255,255,0.28);
+    --text:#f2f2f2; --muted:#9a9a9a; --hint:#5a5a5a; --accent:#fff; --on-accent:#000;
+    --green:#3ecf8e; --green-soft:rgba(62,207,142,0.10);
+    --red:#f87171; --red-soft:rgba(248,113,113,0.08);
+    --amber:#f5a524; --amber-soft:rgba(245,165,36,0.08);
+    --mono:'JetBrains Mono','Courier New',Courier,monospace;
+  }
+  html,body { background:var(--bg); }
+  body { color:var(--text); font-family:var(--mono); font-size:13px; line-height:1.55; min-height:100vh; }
+  .page { max-width:1200px; margin:0 auto; padding:2.2rem 1.4rem 5rem; }
+  .topbar { display:flex; justify-content:space-between; align-items:center; padding-bottom:1rem; border-bottom:1px solid var(--border); margin-bottom:1.6rem; flex-wrap:wrap; gap:10px; }
+  .topbar h1 { font-size:12px; font-weight:500; letter-spacing:.18em; text-transform:uppercase; }
+  .topbar .nav { display:flex; gap:12px; align-items:center; }
+  .topbar .nav a { color:var(--muted); text-decoration:none; font-size:10px; letter-spacing:.16em; text-transform:uppercase; border-bottom:1px solid transparent; padding-bottom:2px; }
+  .topbar .nav a:hover { color:var(--text); border-bottom-color:var(--border-md); }
+  .topbar .meta { font-size:10px; letter-spacing:.14em; color:var(--hint); text-transform:uppercase; display:flex; gap:12px; align-items:center; }
+  .summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:1.4rem; }
+  .kpi { border:1px solid var(--border); padding:14px 16px; }
+  .kpi .label { font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--hint); }
+  .kpi .value { font-size:24px; font-weight:500; margin-top:6px; letter-spacing:-0.01em; }
+  .kpi .sub   { font-size:10px; color:var(--muted); margin-top:4px; letter-spacing:.14em; text-transform:uppercase; }
+  .date-row { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .date-row label { font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--hint); }
+  .card { border:1px solid var(--border); margin-bottom:1rem; }
+  .card-head { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border); font-size:10px; letter-spacing:.18em; text-transform:uppercase; }
+  .card-head .slash { color:var(--muted); }
+  .card-body { padding:0; overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:12px; min-width:960px; }
+  th, td { padding:10px 8px; border-bottom:1px solid var(--border); text-align:left; vertical-align:top; white-space:nowrap; }
+  th { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:500; }
+  td code { color:var(--hint); font-size:10px; }
+  tr.op-row.submitted { border-left:3px solid var(--green); }
+  tr.op-row.pending   { border-left:3px solid var(--amber); }
+  tr.op-row.off       { border-left:3px solid var(--red); }
+  .pill { display:inline-block; font-size:10px; letter-spacing:.12em; text-transform:uppercase; padding:2px 7px; border:1px solid var(--border); }
+  .pill.ok { border-color:var(--green); color:var(--green); background:var(--green-soft); }
+  .pill.warn { border-color:var(--amber); color:var(--amber); background:var(--amber-soft); }
+  .pill.off  { border-color:var(--red);   color:var(--red);   background:var(--red-soft); }
+  .pill.mute { color:var(--hint); }
+  .btn {
+    border:1px solid var(--border-md); background:transparent; color:var(--text);
+    padding:6px 12px; font-family:var(--mono); font-size:10px; letter-spacing:.14em;
+    text-transform:uppercase; cursor:pointer; transition:background .12s, border-color .12s;
+  }
+  .btn:hover { border-color:var(--accent); background:var(--surface); }
+  .btn.tiny { padding:3px 8px; font-size:9px; }
+  input[type=date] {
+    background:transparent; border:1px solid var(--border); color:var(--text);
+    font-family:var(--mono); font-size:12px; padding:6px 10px; color-scheme:dark;
+  }
+  .empty { padding:20px; text-align:center; color:var(--hint); font-size:11px; letter-spacing:.14em; text-transform:uppercase; }
+  .banner { padding:12px 14px; border:1px solid var(--border); margin-bottom:1rem; font-size:12px; }
+  .banner.err { border-color:var(--red); color:var(--red); }
+  .hidden { display:none; }
+
+  /* drawer */
+  .drawer-bg { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:stretch; justify-content:flex-end; z-index:100; }
+  .drawer-bg.open { display:flex; }
+  .drawer { width:min(780px,100%); background:var(--bg); border-left:1px solid var(--border); padding:22px 20px; overflow-y:auto; }
+  .drawer h2 { font-size:14px; font-weight:500; letter-spacing:.02em; margin-bottom:4px; }
+  .drawer .sub { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--hint); margin-bottom:1rem; }
+  .drawer .close { float:right; }
+  .drawer-rows .row {
+    display:grid; grid-template-columns:1fr 110px auto; gap:10px;
+    padding:10px 0; border-bottom:1px solid var(--border); align-items:center;
+  }
+  .drawer-rows .row .who strong { font-weight:500; }
+  .drawer-rows .row .who .meta { font-size:11px; color:var(--muted); }
+  .drawer-rows .row .loc { font-size:10px; color:var(--hint); letter-spacing:.08em; }
+  .drawer-rows img { max-width:72px; max-height:72px; border:1px solid var(--border); }
+  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:6px 14px; font-size:12px; }
+  .two-col .k { color:var(--hint); font-size:10px; letter-spacing:.14em; text-transform:uppercase; }
+  .two-col .v { color:var(--text); }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="topbar">
+    <h1>// Dashboard</h1>
+    <div class="nav" id="nav"></div>
+    <div class="meta">
+      <span id="who">—</span>
+      <button class="btn tiny" id="signout">Sign out</button>
+    </div>
+  </div>
+
+  <div id="status-banner" class="hidden"></div>
+
+  <div id="app" class="hidden">
+    <div class="date-row">
+      <label>Date</label>
+      <input type="date" id="date-picker" />
+      <button class="btn tiny" id="reload">Reload</button>
+      <button class="btn tiny" id="today">Today</button>
+    </div>
+
+    <div class="summary" id="summary"></div>
+
+    <div class="card">
+      <div class="card-head"><span><span class="slash">//</span>&nbsp; Operations</span><span id="ops-count" class="pill mute">0</span></div>
+      <div class="card-body" id="ops-host"><div class="empty">loading…</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="drawer-bg" id="drawer-bg">
+  <div class="drawer" id="drawer">
+    <button class="btn tiny close" id="drawer-close">Close ×</button>
+    <h2 id="drawer-title">—</h2>
+    <div class="sub" id="drawer-sub">—</div>
+    <div id="drawer-body"><div class="empty">loading…</div></div>
+  </div>
+</div>
+
+<script src="/config.js"></script>
+<script>
+(function () {
+  const API     = window.BACKEND_URL;
+  const TOKEN_K = "spec_token";
+  const whoEl   = document.getElementById("who");
+  const nav     = document.getElementById("nav");
+  const banner  = document.getElementById("status-banner");
+  const appEl   = document.getElementById("app");
+  const picker  = document.getElementById("date-picker");
+
+  (function captureToken() {
+    const p = new URLSearchParams(location.search);
+    const t = p.get("token");
+    if (t) {
+      localStorage.setItem(TOKEN_K, t);
+      p.delete("token");
+      const qs = p.toString();
+      history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
+    }
+  })();
+
+  function token() { return localStorage.getItem(TOKEN_K) || ""; }
+  function authHdr() { return { Authorization: "Bearer " + token() }; }
+  function redirectToLogin() {
+    location.href = API + "/auth/google?next=" + encodeURIComponent(location.pathname);
+  }
+  function showBanner(cls, msg) {
+    banner.className = "banner " + cls;
+    banner.textContent = msg;
+    banner.classList.remove("hidden");
+  }
+
+  document.getElementById("signout").onclick = function () {
+    localStorage.removeItem(TOKEN_K);
+    location.reload();
+  };
+
+  function todayIsoIST() {
+    // en-CA locale formats as YYYY-MM-DD, independent of the user's system tz.
+    return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+  }
+
+  async function bootstrap() {
+    if (!token()) return redirectToLogin();
+    let res;
+    try { res = await fetch(API + "/auth/verify?token=" + encodeURIComponent(token())); }
+    catch (e) { return showBanner("err", "Network error: " + e.message); }
+    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
+    if (!res.ok) return showBanner("err", "Auth check failed: " + res.status);
+    const { user } = await res.json();
+    if (!["general","chief"].includes(user.role)) {
+      return showBanner("err", `Signed in as ${user.email} (role: ${user.role || "none"}). Only generals and chiefs can see this dashboard.`);
+    }
+    whoEl.textContent = `${user.email} · ${user.role}`;
+
+    // role-specific nav link back to admin
+    nav.innerHTML = "";
+    if (user.role === "general") {
+      nav.innerHTML = `<a href="/ops-admin.html">← Ops Admin</a>`;
+    } else {
+      nav.innerHTML = `<a href="/chief-admin.html">← Chief Admin</a>`;
+    }
+
+    picker.value = todayIsoIST();
+    appEl.classList.remove("hidden");
+    await loadDay(picker.value);
+  }
+
+  document.getElementById("reload").onclick = () => loadDay(picker.value);
+  document.getElementById("today").onclick  = () => { picker.value = todayIsoIST(); loadDay(picker.value); };
+  picker.onchange = () => loadDay(picker.value);
+
+  async function loadDay(dateStr) {
+    const host = document.getElementById("ops-host");
+    host.innerHTML = `<div class="empty">loading…</div>`;
+    document.getElementById("summary").innerHTML = "";
+    const res = await fetch(API + "/api/dashboard?date=" + encodeURIComponent(dateStr), { headers: authHdr() });
+    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
+    if (!res.ok) { host.innerHTML = `<div class="banner err">Failed: ${res.status}</div>`; return; }
+    const d = await res.json();
+    renderSummary(d);
+    renderOps(d);
+  }
+
+  function renderSummary(d) {
+    const s = d.summary;
+    const host = document.getElementById("summary");
+    const cards = [
+      { label: "Operations",          value: s.total_ops,         sub: d.date },
+      { label: "Reports submitted",   value: `${s.ops_submitted}/${s.total_ops}`, sub: "today" },
+      { label: "Reports pending",     value: s.ops_pending,       sub: "active ops" },
+      { label: "People on-ground",    value: s.total_attendance,  sub: "logged attendance" },
+      { label: "Verified (photo)",    value: `${s.verified_attendance}/${s.total_attendance || 0}`, sub: "device+exif match" },
+    ];
+    host.innerHTML = cards.map(c => `
+      <div class="kpi">
+        <div class="label">${esc(c.label)}</div>
+        <div class="value">${esc(String(c.value))}</div>
+        <div class="sub">${esc(c.sub || "")}</div>
+      </div>
+    `).join("");
+  }
+
+  function renderOps(d) {
+    const host = document.getElementById("ops-host");
+    const ops = d.ops || [];
+    document.getElementById("ops-count").textContent = ops.length;
+    if (ops.length === 0) { host.innerHTML = `<div class="empty">No operations to show.</div>`; return; }
+
+    const cells = ops.map(op => {
+      const state = !op.is_active ? "off" : op.submitted ? "submitted" : "pending";
+      const stateBadge = state === "submitted"
+        ? `<span class="pill ok">submitted</span>`
+        : state === "pending"
+          ? `<span class="pill warn">pending</span>`
+          : `<span class="pill off">inactive</span>`;
+      const r = op.report || {};
+      const dep = r.devices_deployed ?? "—";
+      const avail = r.devices_available ?? "—";
+      const gh = (r.good_hours_actual ?? null) !== null
+        ? `${r.good_hours_actual}${r.good_hours_projected != null ? ` / ${r.good_hours_projected}` : ""}`
+        : "—";
+      const art = r.actual_reporting_time || "—";
+      const tl  = r.time_leaving || "—";
+      return `
+        <tr class="op-row ${state}" data-op="${esc(op.op_id)}" data-date="${esc(d.date)}" data-factory="${esc(op.factory_name)}" data-shift="${esc(op.shift)}">
+          <td>
+            <div><strong>${esc(op.factory_name)}</strong> · ${esc(op.shift)}</div>
+            <div><code>${esc(op.op_id)}</code> · ${esc(op.location || "")}</div>
+          </td>
+          <td>${stateBadge}</td>
+          <td>${esc(String(r.chiefs ?? "—"))} / ${esc(String(r.captains ?? "—"))} / ${esc(String(r.operators ?? "—"))}</td>
+          <td>${esc(String(dep))} / ${esc(String(avail))}</td>
+          <td>${esc(gh)}</td>
+          <td>${esc(art)} → ${esc(tl)}</td>
+          <td>
+            <span class="pill ${op.attendance_count > 0 ? "ok" : "mute"}">${op.attendance_count}</span>
+            <span class="pill mute" title="verified">${op.verified_count}</span>
+          </td>
+          <td><button class="btn tiny attendance-btn">View</button></td>
+        </tr>
+      `;
+    }).join("");
+
+    host.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Operation</th><th>Today</th>
+            <th title="chiefs / captains / operators">C / Cap / Op</th>
+            <th title="deployed / available">Dev</th>
+            <th title="actual / projected">Good Hrs</th>
+            <th>Reporting → Leave</th>
+            <th title="total / verified">Attendance</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>${cells}</tbody>
+      </table>
+    `;
+    host.querySelectorAll("tr.op-row").forEach(tr => {
+      tr.querySelector(".attendance-btn").onclick = (e) => {
+        e.stopPropagation();
+        openDrawer(tr.dataset.op, tr.dataset.date, tr.dataset.factory, tr.dataset.shift);
+      };
+    });
+  }
+
+  // ---- attendance drawer ----
+  const drawerBg    = document.getElementById("drawer-bg");
+  const drawerTitle = document.getElementById("drawer-title");
+  const drawerSub   = document.getElementById("drawer-sub");
+  const drawerBody  = document.getElementById("drawer-body");
+  document.getElementById("drawer-close").onclick = () => drawerBg.classList.remove("open");
+  drawerBg.onclick = (e) => { if (e.target === drawerBg) drawerBg.classList.remove("open"); };
+
+  async function openDrawer(opId, dateStr, factory, shift) {
+    drawerTitle.textContent = `${factory} · ${shift}`;
+    drawerSub.textContent   = `${opId} · ${dateStr}`;
+    drawerBody.innerHTML    = `<div class="empty">loading…</div>`;
+    drawerBg.classList.add("open");
+    const res = await fetch(API + "/api/dashboard/attendance?op_id=" + encodeURIComponent(opId) + "&date=" + encodeURIComponent(dateStr), { headers: authHdr() });
+    if (!res.ok) { drawerBody.innerHTML = `<div class="banner err">Failed: ${res.status}</div>`; return; }
+    const d = await res.json();
+    if (!d.rows || d.rows.length === 0) {
+      drawerBody.innerHTML = `<div class="empty">No attendance logged for this date.</div>`;
+      return;
+    }
+    drawerBody.innerHTML = `
+      <div class="drawer-rows">
+        ${d.rows.map(p => {
+          const locStr = `${p.browser_lat?.toFixed?.(5) ?? "?"}, ${p.browser_lng?.toFixed?.(5) ?? "?"}${p.browser_accuracy_m ? ` (±${Math.round(p.browser_accuracy_m)}m)` : ""}`;
+          const distStr = p.distance_m != null ? `photo EXIF ${Math.round(p.distance_m)}m from device` : (p.photo_url ? "photo has no GPS" : "no photo");
+          const verifyPill = p.verified ? `<span class="pill ok">verified</span>` : `<span class="pill warn">unverified</span>`;
+          const photoHtml = p.photo_url ? `<a href="${esc(p.photo_url)}" target="_blank"><img src="${esc(p.photo_url)}" alt="photo" /></a>` : `<span class="pill mute">no photo</span>`;
+          return `
+            <div class="row">
+              <div class="who">
+                <strong>${esc(p.full_name)}</strong>
+                <span class="pill mute" style="margin-left:6px">${esc(p.person_role)}</span>
+                <div class="meta">${esc(p.phone)} · PAN ${esc(p.pan_number || "—")}</div>
+                <div class="loc">${esc(locStr)} · ${esc(distStr)}</div>
+                <div style="margin-top:4px">${verifyPill}</div>
+              </div>
+              <div>${photoHtml}</div>
+              <div style="font-size:10px;color:var(--hint)">${esc(new Date(p.submitted_at).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}))}</div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  function esc(v) {
+    if (v === null || v === undefined) return "";
+    return String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  bootstrap();
+})();
+</script>
+</body>
+</html>
