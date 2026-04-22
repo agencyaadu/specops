@@ -1,10 +1,17 @@
-from fastapi import APIRouter, Request, HTTPException, Depends, Header
+from fastapi import APIRouter, Request, HTTPException, Depends, Header, Query
 from pydantic import BaseModel
 from typing import Optional
-from datetime import time
+from datetime import time, datetime
 import re
 
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:  # pragma: no cover
+    from backports.zoneinfo import ZoneInfo  # type: ignore
+
 from deps import require_current_role, has_op_access
+
+_IST = ZoneInfo("Asia/Kolkata")
 
 router = APIRouter()
 
@@ -147,22 +154,74 @@ async def create_op(body: OpIn, request: Request, claims: dict = Depends(general
     return _row_out(row)
 
 @router.get("")
-async def list_ops(request: Request, claims: dict = Depends(any_role)):
+async def list_ops(
+    request: Request,
+    include: Optional[str] = Query(None, description="comma list: assignments,today"),
+    claims: dict = Depends(any_role),
+):
+    wants = {x.strip() for x in (include or "").split(",") if x.strip()}
+    today = datetime.now(_IST).date()
     db = request.app.state.db
-    if claims["role"] == "general":
-        rows = await db.fetch("SELECT * FROM operations ORDER BY factory_name, shift")
-    else:
-        # Chiefs see only ops they're assigned to.
-        email = (claims.get("email") or "").lower()
-        rows = await db.fetch(
-            """
-            SELECT o.* FROM operations o
-              JOIN op_assignments a ON a.op_id = o.op_id AND a.email = $1
-             ORDER BY o.factory_name, o.shift
-            """,
-            email,
+
+    # Column list + joins depend on the include flags. Kept as one SQL so
+    # the fan-out N+1 in the frontend collapses into a single request.
+    select_extras = []
+    joins = []
+    if "assignments" in wants:
+        select_extras.append("COALESCE(a.chief_count,   0) AS chief_count")
+        select_extras.append("COALESCE(a.captain_count, 0) AS captain_count")
+        joins.append("""
+            LEFT JOIN (
+              SELECT op_id,
+                     COUNT(*) FILTER (WHERE role='chief')   AS chief_count,
+                     COUNT(*) FILTER (WHERE role='captain') AS captain_count
+                FROM op_assignments
+               GROUP BY op_id
+            ) a ON a.op_id = o.op_id
+        """)
+    if "today" in wants:
+        select_extras.append("(r.op_id IS NOT NULL) AS already_submitted")
+        joins.append(
+            "LEFT JOIN daily_reports r ON r.op_id = o.op_id AND r.report_date = $today_date"
         )
-    return {"rows": [_row_out(r) for r in rows]}
+
+    extras_sql = (", " + ", ".join(select_extras)) if select_extras else ""
+    joins_sql  = "\n".join(joins)
+
+    if claims["role"] == "general":
+        sql = f"""
+            SELECT o.*{extras_sql}
+              FROM operations o
+              {joins_sql}
+             ORDER BY o.factory_name, o.shift
+        """
+        if "today" in wants:
+            sql = sql.replace("$today_date", "$1")
+            rows = await db.fetch(sql, today)
+        else:
+            rows = await db.fetch(sql)
+    else:
+        # Chiefs/captains see only ops they're assigned to.
+        email = (claims.get("email") or "").lower()
+        sql = f"""
+            SELECT o.*{extras_sql}
+              FROM operations o
+              JOIN op_assignments asn ON asn.op_id = o.op_id AND asn.email = $1
+              {joins_sql}
+             ORDER BY o.factory_name, o.shift
+        """
+        if "today" in wants:
+            sql = sql.replace("$today_date", "$2")
+            rows = await db.fetch(sql, email, today)
+        else:
+            rows = await db.fetch(sql, email)
+
+    out = []
+    for r in rows:
+        d = _row_out(r)
+        # _row_out only formats time columns; assignment/today extras already come typed right.
+        out.append(d)
+    return {"rows": out}
 
 @router.patch("/{op_id}")
 async def patch_op(op_id: str, body: OpPatch, request: Request, claims: dict = Depends(general_or_chief)):

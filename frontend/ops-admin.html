@@ -265,7 +265,7 @@
   // ========== OPS ==========
   let opsCache = [];
   async function loadOps() {
-    const res = await fetch(API + "/api/ops", { headers: authHdr() });
+    const res = await fetch(API + "/api/ops?include=assignments", { headers: authHdr() });
     if (!res.ok) { showBanner("err", "Failed to load ops: " + res.status); return; }
     const { rows } = await res.json();
     opsCache = rows;
@@ -273,17 +273,8 @@
     tbody.innerHTML = "";
     document.getElementById("ops-empty").classList.toggle("hidden", rows.length > 0);
 
-    // Fetch assignment counts per op in parallel
-    const countsMap = {};
-    await Promise.all(rows.map(async op => {
-      const r = await fetch(API + "/api/ops/" + encodeURIComponent(op.op_id) + "/assignments", { headers: authHdr() });
-      if (!r.ok) { countsMap[op.op_id] = { chief: 0, captain: 0 }; return; }
-      const j = await r.json();
-      countsMap[op.op_id] = j.rows.reduce((a,c) => (a[c.role]++, a), { chief: 0, captain: 0 });
-    }));
-
     rows.forEach(op => {
-      const counts = countsMap[op.op_id];
+      const counts = { chief: op.chief_count || 0, captain: op.captain_count || 0 };
       const reporterUrl = location.origin + "/r/" + op.op_id;
       const tr = document.createElement("tr");
       tr.innerHTML = `

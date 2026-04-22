@@ -187,7 +187,7 @@
   }
 
   async function loadOps() {
-    const res = await fetch(API + "/api/ops", { headers: authHdr() });
+    const res = await fetch(API + "/api/ops?include=today", { headers: authHdr() });
     if (!res.ok) { opsHost.innerHTML = `<div class="banner err">Failed to load ops: ${res.status}</div>`; return; }
     const { rows } = await res.json();
     if (rows.length === 0) {
@@ -197,26 +197,17 @@
     }
     document.getElementById("today-tag").textContent = todayStr();
 
-    // Fetch today's submission status for each op in parallel.
-    const withStatus = await Promise.all(rows.map(async op => {
-      const r = await fetch(API + "/api/op/" + encodeURIComponent(op.op_id), { headers: authHdr() });
-      if (!r.ok) return { ...op, _err: r.status };
-      const ctx = await r.json();
-      return { ...op, already_submitted: ctx.already_submitted };
-    }));
-
-    const pending = withStatus.filter(o => o.is_active && o._err === undefined && !o.already_submitted);
+    const pending = rows.filter(o => o.is_active && !o.already_submitted);
     if (pending.length > 0) {
       showReminder("warn", `Daily report reminder — ${pending.length} of your operations haven't been filled today.`);
     } else {
-      const anyActive = withStatus.some(o => o.is_active);
+      const anyActive = rows.some(o => o.is_active);
       if (anyActive) showReminder("ok", "Today's reports are all submitted. Nice.");
     }
 
-    opsHost.innerHTML = withStatus.map(op => {
-      const state = op._err !== undefined ? "err"
-                  : !op.is_active        ? "off"
-                  : op.already_submitted ? "done"
+    opsHost.innerHTML = rows.map(op => {
+      const state = !op.is_active          ? "off"
+                  : op.already_submitted   ? "done"
                   : "pending";
       const pillCls  = state === "done" ? "ok" : state === "pending" ? "warn" : state === "off" ? "off" : "";
       const pillText = state === "done" ? "today: submitted"
