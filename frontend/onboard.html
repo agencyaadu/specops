@@ -417,6 +417,25 @@
     margin-bottom: 1.8rem;
   }
   .welcome-id b { color: var(--green); letter-spacing: .04em; font-weight: 500; }
+  .welcome-discord {
+    border: 1px solid var(--border-md);
+    padding: 18px 20px;
+    margin: 0 auto 1.6rem;
+    max-width: 520px;
+    text-align: center;
+  }
+  .welcome-discord-label {
+    font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
+    color: var(--hint); margin-bottom: 10px;
+  }
+  .welcome-discord-desc {
+    font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 14px;
+  }
+  .welcome-discord .btn-primary {
+    text-decoration: none;
+    background: var(--accent); color: var(--on-accent); border-color: var(--accent);
+  }
+  .welcome-discord .btn-primary:hover { background: var(--text); }
   .welcome-actions {
     display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
   }
@@ -769,6 +788,11 @@
       <div class="welcome-hero" id="welcome-hero"></div>
       <div class="welcome-tagline reveal" id="welcome-tagline"><span id="welcome-tagline-text"></span></div>
       <div class="welcome-id reveal" id="welcome-id">Application ID &middot; <b id="welcome-id-num">#—</b></div>
+      <div class="welcome-discord reveal">
+        <div class="welcome-discord-label">// Join the Discord</div>
+        <div class="welcome-discord-desc">Daily coordination, shoutouts, and all things SpecOps happen here. Pop in and say hi.</div>
+        <a class="btn btn-primary" href="https://discord.gg/8GNWHmSm" target="_blank" rel="noopener noreferrer">Open Discord server →</a>
+      </div>
       <div class="welcome-actions reveal" id="welcome-actions">
         <button type="button" class="btn" onclick="resetToForm()">Submit another</button>
       </div>
