@@ -788,7 +788,7 @@
       <div class="welcome-hero" id="welcome-hero"></div>
       <div class="welcome-tagline reveal" id="welcome-tagline"><span id="welcome-tagline-text"></span></div>
       <div class="welcome-id reveal" id="welcome-id">Application ID &middot; <b id="welcome-id-num">#—</b></div>
-      <div class="welcome-discord reveal">
+      <div class="welcome-discord reveal" id="welcome-discord">
         <div class="welcome-discord-label">// Join the Discord</div>
         <div class="welcome-discord-desc">Daily coordination, shoutouts, and all things SpecOps happen here. Pop in and say hi.</div>
         <a class="btn btn-primary" href="https://discord.gg/8GNWHmSm" target="_blank" rel="noopener noreferrer">Open Discord server →</a>
@@ -937,6 +937,7 @@ async function runWelcomeSequence(id) {
   const tagline  = document.getElementById('welcome-tagline');
   const tagText  = document.getElementById('welcome-tagline-text');
   const idChip   = document.getElementById('welcome-id');
+  const discord  = document.getElementById('welcome-discord');
   const actions  = document.getElementById('welcome-actions');
 
   greet.textContent = '';
@@ -945,6 +946,7 @@ async function runWelcomeSequence(id) {
   cursor.classList.remove('gone');
   tagline.classList.remove('on');
   idChip.classList.remove('on');
+  discord?.classList.remove('on');
   actions.classList.remove('on');
 
   document.getElementById('welcome-id-num').textContent = '#' + id;
@@ -967,6 +969,9 @@ async function runWelcomeSequence(id) {
 
   cursor.classList.add('gone');
   idChip.classList.add('on');
+  await sleep(220);
+  if (seq !== welcomeSeq) return;
+  discord?.classList.add('on');
   await sleep(220);
   if (seq !== welcomeSeq) return;
   actions.classList.add('on');
