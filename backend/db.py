@@ -151,11 +151,13 @@ CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance(report_date);
 CREATE_BOT_ROLES = """
 CREATE TABLE IF NOT EXISTS bot_roles (
     email           TEXT PRIMARY KEY ,
-    role            TEXT NOT NULL CHECK (role IN ('general', 'chief', 'captain')) ,
+    role            TEXT NOT NULL CHECK (role IN ('owner','general','chief','captain','viewer')) ,
     can_create_ops  BOOLEAN NOT NULL DEFAULT FALSE ,
     added_at        TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE bot_roles ADD COLUMN IF NOT EXISTS can_create_ops BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE bot_roles DROP CONSTRAINT IF EXISTS bot_roles_role_check;
+ALTER TABLE bot_roles ADD CONSTRAINT bot_roles_role_check CHECK (role IN ('owner','general','chief','captain','viewer'));
 """
 
 CREATE_NOTES = """
@@ -201,15 +203,24 @@ async def init_db(pool: asyncpg.Pool):
         await _seed_admins(conn)
 
 async def _seed_admins(conn: asyncpg.Connection):
-    raw = os.environ.get("GENERAL_EMAILS", "").strip()
-    if not raw:
-        return
-    emails = [e.strip().lower() for e in raw.split(",") if e.strip()]
-    for email in emails:
-        await conn.execute(
-            """
-            INSERT INTO bot_roles (email, role) VALUES ($1, 'general')
-            ON CONFLICT (email) DO UPDATE SET role = 'general'
-            """,
-            email,
-        )
+    # OWNER_EMAILS takes precedence — owners can add/remove generals.
+    # GENERAL_EMAILS remains for backward compat + secondary generals.
+    for env_var, role in (("OWNER_EMAILS", "owner"), ("GENERAL_EMAILS", "general")):
+        raw = os.environ.get(env_var, "").strip()
+        if not raw:
+            continue
+        emails = [e.strip().lower() for e in raw.split(",") if e.strip()]
+        for email in emails:
+            await conn.execute(
+                """
+                INSERT INTO bot_roles (email, role) VALUES ($1, $2)
+                ON CONFLICT (email) DO UPDATE SET
+                    role = CASE
+                        -- never downgrade: an existing owner stays owner
+                        WHEN bot_roles.role = 'owner' THEN 'owner'
+                        WHEN EXCLUDED.role = 'owner' THEN 'owner'
+                        ELSE EXCLUDED.role
+                    END
+                """,
+                email, role,
+            )

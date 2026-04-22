@@ -45,8 +45,8 @@ def require_current_role(*allowed_roles: str):
     return _dep
 
 async def has_op_access(request: Request, claims: dict, op_id: str) -> bool:
-    """True if the claim holder can act on the given op (general, or assigned chief/captain)."""
-    if claims.get("role") == "general":
+    """True if the claim holder can act on the given op (owner/general, or assigned chief/captain)."""
+    if claims.get("role") in ("owner", "general"):
         return True
     email = (claims.get("email") or "").lower()
     role  = claims.get("role")

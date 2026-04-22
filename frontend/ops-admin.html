@@ -94,7 +94,7 @@
   <div id="app" class="hidden">
     <div class="tabs">
       <div class="tab active" data-tab="ops">Operations</div>
-      <div class="tab" data-tab="chiefs">Chiefs</div>
+      <div class="tab" data-tab="chiefs">Roles</div>
     </div>
 
     <!-- OPERATIONS TAB -->
@@ -165,18 +165,26 @@
       </div>
     </section>
 
-    <!-- CHIEFS TAB -->
+    <!-- ROLES TAB -->
     <section id="tab-chiefs" class="hidden">
       <div class="card">
         <div class="card-head">
-          <span><span class="slash">//</span>&nbsp; Add a Chief</span>
+          <span><span class="slash">//</span>&nbsp; Add a Role</span>
         </div>
         <div class="card-body">
-          <div class="row3" style="align-items:end">
+          <div class="row4" style="align-items:end">
             <div class="field"><label>Email</label><input type="email" id="r-email" placeholder="name@example.com" /></div>
             <div class="field">
+              <label>Role</label>
+              <select id="r-role">
+                <option value="chief" selected>chief</option>
+                <option value="viewer">viewer (dashboard + analytics only)</option>
+                <option value="general" class="owner-only">general (admin)</option>
+              </select>
+            </div>
+            <div class="field" id="cco-field">
               <label>Can create ops</label>
-              <div class="check-inline" style="padding:8px 2px"><input type="checkbox" id="r-cco" /> <span style="font-size:11px;color:var(--muted)">allow this chief to create new ops</span></div>
+              <div class="check-inline" style="padding:8px 2px"><input type="checkbox" id="r-cco" /> <span style="font-size:11px;color:var(--muted)">allow creating new ops</span></div>
             </div>
             <div class="field"><button class="btn primary" id="add-role">Add / Update</button></div>
           </div>
@@ -190,7 +198,7 @@
             </thead>
             <tbody></tbody>
           </table>
-          <div id="roles-empty" class="empty hidden">No chief entries yet.</div>
+          <div id="roles-empty" class="empty hidden">No role entries yet.</div>
         </div>
       </div>
     </section>
@@ -243,11 +251,16 @@
     if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
     if (!res.ok) { return showBanner("err", "Auth check failed: " + res.status); }
     const { user } = await res.json();
-    if (user.role !== "general") {
+    if (!["owner", "general"].includes(user.role)) {
       return showBanner("err",
-        `Signed in as ${user.email} (role: ${user.role || "none"}). Only generals can access this page.`);
+        `Signed in as ${user.email} (role: ${user.role || "none"}). Only owners and generals can access this page.`);
     }
-    whoEl.textContent = `${user.email} · general`;
+    whoEl.textContent = `${user.email} · ${user.role}`;
+    // owner gets the 'general' option in the Add Role dropdown; general does not.
+    if (user.role !== "owner") {
+      document.querySelectorAll(".owner-only").forEach(el => el.remove());
+    }
+    window._currentUserRole = user.role;
     appEl.classList.remove("hidden");
     loadOps();
     loadRoles();
@@ -439,19 +452,29 @@
     const tbody = document.querySelector("#roles-table tbody");
     tbody.innerHTML = "";
     document.getElementById("roles-empty").classList.toggle("hidden", rows.length > 0);
+    const currentRole = window._currentUserRole;
     rows.forEach(r => {
       const tr = document.createElement("tr");
+      const isOwner   = r.role === "owner";
       const isGeneral = r.role === "general";
+      const ccoAlwaysTrue = isOwner;            // owner always implicitly can create
+      const ccoDisabled   = isOwner || (isGeneral && currentRole !== "owner");
+      // Caller must outrank target to remove it (owner > general > chief/viewer).
+      const canRemove = !isOwner && (
+        (currentRole === "owner") ||
+        (currentRole === "general" && !isGeneral)
+      );
+      const pillClass = isOwner ? "ok" : isGeneral ? "ok" : "";
       tr.innerHTML = `
         <td>${esc(r.email)}</td>
-        <td><span class="pill ${isGeneral ? 'ok' : ''}">${esc(r.role)}</span></td>
+        <td><span class="pill ${pillClass}">${esc(r.role)}</span></td>
         <td>
-          <input type="checkbox" class="cco-toggle" data-email="${esc(r.email)}" ${r.can_create_ops ? 'checked' : ''} ${isGeneral ? 'disabled' : ''} />
-          ${isGeneral ? '<span class="pill mute">always</span>' : ''}
+          <input type="checkbox" class="cco-toggle" data-email="${esc(r.email)}" ${(r.can_create_ops || ccoAlwaysTrue) ? 'checked' : ''} ${ccoDisabled ? 'disabled' : ''} />
+          ${ccoAlwaysTrue ? '<span class="pill mute">always</span>' : ''}
         </td>
         <td><code>${r.added_at ? r.added_at.slice(0,10) : ''}</code></td>
         <td><div class="inline-actions">
-          ${isGeneral ? '' : `<button class="btn tiny danger remove" data-email="${esc(r.email)}">Remove</button>`}
+          ${canRemove ? `<button class="btn tiny danger remove" data-email="${esc(r.email)}" data-role="${esc(r.role)}">Remove</button>` : ''}
         </div></td>
       `;
       tbody.appendChild(tr);
@@ -462,21 +485,32 @@
 
   document.getElementById("add-role").onclick = async function () {
     const email = val("r-email").trim().toLowerCase();
+    const role  = document.getElementById("r-role").value;
     const cco   = document.getElementById("r-cco").checked;
     if (!email) { alert("email required"); return; }
     this.disabled = true;
     try {
       const res = await fetch(API + "/api/roles", {
         method: "POST", headers: { ...authHdr(), "Content-Type": "application/json" },
-        body: JSON.stringify({ email, can_create_ops: cco }),
+        body: JSON.stringify({ email, role, can_create_ops: role === "viewer" ? false : cco }),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) { alert("Add failed: " + (j.detail || res.status)); return; }
       document.getElementById("r-email").value = "";
       document.getElementById("r-cco").checked = false;
+      document.getElementById("r-role").value = "chief";
+      updateCCOFieldVisibility();
       loadRoles();
     } finally { this.disabled = false; }
   };
+
+  function updateCCOFieldVisibility() {
+    const role = document.getElementById("r-role")?.value;
+    const field = document.getElementById("cco-field");
+    if (!field) return;
+    field.style.visibility = role === "viewer" ? "hidden" : "visible";
+  }
+  document.getElementById("r-role").onchange = updateCCOFieldVisibility;
 
   async function patchCCO(email, val) {
     const res = await fetch(API + "/api/roles/" + encodeURIComponent(email), {

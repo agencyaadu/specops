@@ -6,14 +6,20 @@ from deps import require_current_role
 
 router = APIRouter()
 
-general_only = require_current_role("general")
+# Role management is owner + general. Hierarchy rules inside each handler decide
+# which roles the caller can act on.
+owner_or_general = require_current_role("owner", "general")
 
-class ChiefIn(BaseModel):
+
+class RoleIn(BaseModel):
     email: EmailStr
+    role: Literal["general", "chief", "viewer"] = "chief"
     can_create_ops: bool = False
+
 
 class PermPatch(BaseModel):
     can_create_ops: Optional[bool] = None
+
 
 def _row_out(row) -> dict:
     d = dict(row)
@@ -21,36 +27,72 @@ def _row_out(row) -> dict:
         d["added_at"] = d["added_at"].isoformat()
     return d
 
+
+def _caller_can_target(caller_role: str, target_role: str) -> bool:
+    """owner can touch anyone; general can only touch chief/viewer."""
+    if caller_role == "owner":
+        return target_role in ("general", "chief", "viewer", "captain")
+    if caller_role == "general":
+        return target_role in ("chief", "viewer")
+    return False
+
+
 @router.get("")
-async def list_roles(request: Request, _claims: dict = Depends(general_only)):
+async def list_roles(request: Request, _claims: dict = Depends(owner_or_general)):
     rows = await request.app.state.db.fetch(
         "SELECT email, role, can_create_ops, added_at FROM bot_roles ORDER BY added_at DESC"
     )
     return {"rows": [_row_out(r) for r in rows]}
 
+
 @router.post("")
-async def add_chief(body: ChiefIn, request: Request, _claims: dict = Depends(general_only)):
-    """General adds someone as a chief (and optionally grants op-creation)."""
+async def add_role(body: RoleIn, request: Request, claims: dict = Depends(owner_or_general)):
+    """Owner: can add owner (no — see note) / general / chief / viewer.
+       General: can only add chief / viewer.
+       Promotion to 'owner' is not supported via the API — seed via OWNER_EMAILS.
+    """
+    caller_role = claims["role"]
+    if not _caller_can_target(caller_role, body.role):
+        raise HTTPException(403, f"a {caller_role} cannot assign role={body.role}")
+
     email = body.email.lower()
+    # Only chief + general can be flagged can_create_ops; viewer always false.
+    cco = body.can_create_ops if body.role in ("chief", "general") else False
+
+    # Do not let anyone accidentally overwrite an existing owner via this endpoint.
+    existing = await request.app.state.db.fetchval(
+        "SELECT role FROM bot_roles WHERE email = $1", email,
+    )
+    if existing == "owner":
+        raise HTTPException(400, "cannot modify an owner via this endpoint")
+    if existing and not _caller_can_target(caller_role, existing):
+        raise HTTPException(403, f"a {caller_role} cannot overwrite an existing {existing}")
+
     row = await request.app.state.db.fetchrow(
         """
-        INSERT INTO bot_roles (email, role, can_create_ops) VALUES ($1, 'chief', $2)
+        INSERT INTO bot_roles (email, role, can_create_ops) VALUES ($1, $2, $3)
         ON CONFLICT (email) DO UPDATE SET
-            role = CASE
-                WHEN bot_roles.role = 'general' THEN bot_roles.role
-                ELSE 'chief'
-            END,
+            role = EXCLUDED.role,
             can_create_ops = EXCLUDED.can_create_ops
         RETURNING email, role, can_create_ops, added_at
         """,
-        email, body.can_create_ops,
+        email, body.role, cco,
     )
     return _row_out(row)
 
+
 @router.patch("/{email}")
-async def patch_perms(email: str, body: PermPatch, request: Request, _claims: dict = Depends(general_only)):
+async def patch_perms(email: str, body: PermPatch, request: Request, claims: dict = Depends(owner_or_general)):
     if body.can_create_ops is None:
         raise HTTPException(400, "nothing to update")
+    # Confirm caller may act on the target.
+    target_row = await request.app.state.db.fetchrow(
+        "SELECT role FROM bot_roles WHERE email = $1", email.lower(),
+    )
+    if not target_row:
+        raise HTTPException(404, "email not found in bot_roles")
+    if not _caller_can_target(claims["role"], target_row["role"]):
+        raise HTTPException(403, "insufficient privilege for this role")
     row = await request.app.state.db.fetchrow(
         """
         UPDATE bot_roles SET can_create_ops = $1 WHERE email = $2
@@ -58,12 +100,11 @@ async def patch_perms(email: str, body: PermPatch, request: Request, _claims: di
         """,
         body.can_create_ops, email.lower(),
     )
-    if not row:
-        raise HTTPException(404, "email not found in bot_roles")
     return _row_out(row)
 
+
 @router.delete("/{email}")
-async def delete_role(email: str, request: Request, claims: dict = Depends(general_only)):
+async def delete_role(email: str, request: Request, claims: dict = Depends(owner_or_general)):
     target = email.lower()
     if target == (claims.get("email") or "").lower():
         raise HTTPException(400, "cannot remove your own role")
@@ -72,9 +113,11 @@ async def delete_role(email: str, request: Request, claims: dict = Depends(gener
     )
     if not row:
         raise HTTPException(404, "email not found in bot_roles")
-    if row["role"] == "general":
-        raise HTTPException(400, "cannot remove a general role entry from here")
-    deleted = await request.app.state.db.execute(
+    if row["role"] == "owner":
+        raise HTTPException(400, "cannot remove an owner via this endpoint")
+    if not _caller_can_target(claims["role"], row["role"]):
+        raise HTTPException(403, f"a {claims['role']} cannot remove a {row['role']}")
+    await request.app.state.db.execute(
         "DELETE FROM bot_roles WHERE email = $1", target,
     )
     return {"ok": True, "removed": target}

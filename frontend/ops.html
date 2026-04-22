@@ -120,9 +120,11 @@
     signoutBtn.classList.remove("hidden");
 
     const dest = {
+      owner:   "/ops/general",     // owner shares the Ops Admin surface
       general: "/ops/general",
       chief:   "/ops/chief",
       captain: "/ops/captain",
+      viewer:  "/ops/dashboard",   // viewers land straight on the dashboard
     }[user.role];
     if (dest) { location.replace(dest); return; }
     // No role (or unknown) — someone signed in who isn't in bot_roles.

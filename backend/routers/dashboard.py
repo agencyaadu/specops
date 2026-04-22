@@ -15,7 +15,7 @@ router = APIRouter()
 
 IST = ZoneInfo("Asia/Kolkata")
 
-general_or_chief = require_current_role("general", "chief")
+dashboard_roles = require_current_role("owner", "general", "chief", "viewer")
 
 
 def _parse_date(s: Optional[str]) -> date:
@@ -28,8 +28,11 @@ def _parse_date(s: Optional[str]) -> date:
 
 
 def _op_scope_sql(role: str) -> tuple[str, int]:
-    """Return ('' or 'JOIN op_assignments ...', next_param_index_start)."""
-    if role == "general":
+    """Return ('' or 'JOIN op_assignments ...', next_param_index_start).
+
+    general + viewer see all ops; chief sees only assigned ops.
+    """
+    if role in ("owner", "general", "viewer"):
         return "", 1
     return (
         "JOIN op_assignments asn ON asn.op_id = o.op_id AND asn.email = $1",
@@ -41,7 +44,7 @@ def _op_scope_sql(role: str) -> tuple[str, int]:
 async def dashboard(
     request: Request,
     date_: Optional[str] = Query(None, alias="date"),
-    claims: dict = Depends(general_or_chief),
+    claims: dict = Depends(dashboard_roles),
 ):
     target = _parse_date(date_)
     db = request.app.state.db
@@ -49,7 +52,9 @@ async def dashboard(
     email = (claims.get("email") or "").lower()
 
     scope_join, date_param = _op_scope_sql(role)
-    params = [target] if role == "general" else [email, target]
+    params = ([target]
+              if role in ("owner", "general", "viewer")
+              else [email, target])
 
     sql = f"""
         SELECT
@@ -140,10 +145,11 @@ async def attendance_list(
     request: Request,
     op_id: str = Query(...),
     date_: Optional[str] = Query(None, alias="date"),
-    claims: dict = Depends(general_or_chief),
+    claims: dict = Depends(dashboard_roles),
 ):
     target = _parse_date(date_)
-    if claims["role"] != "general":
+    # general and viewer see every op's attendance; chief needs assignment.
+    if claims["role"] not in ("owner", "general", "viewer"):
         if not await has_op_access(request, claims, op_id):
             raise HTTPException(403, "not assigned to this operation")
 

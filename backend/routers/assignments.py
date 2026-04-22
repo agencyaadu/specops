@@ -6,7 +6,7 @@ from deps import require_current_role, has_op_access
 
 router = APIRouter()
 
-general_or_chief = require_current_role("general", "chief")
+general_or_chief = require_current_role("owner", "general", "chief")
 
 class AssignIn(BaseModel):
     email: EmailStr
@@ -27,8 +27,8 @@ async def _ensure_op_exists(request: Request, op_id: str) -> None:
 
 async def _caller_can_manage(request: Request, claims: dict, op_id: str, target_role: str) -> bool:
     caller_role = claims["role"]
-    if caller_role == "general":
-        # General can manage either role on any op.
+    if caller_role in ("owner", "general"):
+        # Owner/general can manage either role on any op.
         return True
     if caller_role == "chief":
         # Chief can manage captains ONLY, and ONLY for ops they're assigned to.
@@ -41,7 +41,7 @@ async def _caller_can_manage(request: Request, claims: dict, op_id: str, target_
 async def list_assignments(op_id: str, request: Request, claims: dict = Depends(general_or_chief)):
     await _ensure_op_exists(request, op_id)
     # Generals see all. Chiefs must be assigned to see this op's roster.
-    if claims["role"] != "general" and not await has_op_access(request, claims, op_id):
+    if claims["role"] not in ("owner", "general") and not await has_op_access(request, claims, op_id):
         raise HTTPException(403, "not assigned to this operation")
     rows = await request.app.state.db.fetch(
         """

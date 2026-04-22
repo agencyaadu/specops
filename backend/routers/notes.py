@@ -6,7 +6,7 @@ from deps import require_current_role
 
 router = APIRouter()
 
-any_role = require_current_role("general", "chief", "captain")
+any_role = require_current_role("owner", "general", "chief", "captain")
 
 class NoteIn(BaseModel):
     kind:  Literal["journal", "complaint", "greeting", "other"] = "journal"
