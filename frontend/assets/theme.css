@@ -1,0 +1,108 @@
+/*
+ * Shared theme + typography for SpecOps.
+ * Loaded after each page's inline <style>, so the CSS variables defined here
+ * override the per-page :root palette (cascade order wins).
+ *
+ * Variables follow Anthropic-style naming:
+ *   --anthropic-sans  — body text (Inter)
+ *   --anthropic-serif — display/headings (Fraunces, a free modern serif
+ *                       close in spirit to Tiempos)
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap");
+
+:root {
+  /* softer dark — reduces eye strain vs pure #000/#fff */
+  --bg:         #0e0d0b;
+  --surface:    #1a1816;
+  --border:     rgba(255, 255, 255, 0.10);
+  --border-md:  rgba(255, 255, 255, 0.20);
+  --text:       #e8e6e1;
+  --muted:      #a09c94;
+  --hint:       #6b6862;
+  --accent:     #e8e6e1;
+  --on-accent:  #0e0d0b;
+
+  /* keep existing status colors but slightly less saturated */
+  --green:      #6db291;
+  --green-soft: rgba(109, 178, 145, 0.12);
+  --red:        #e58e8e;
+  --red-soft:   rgba(229, 142, 142, 0.10);
+  --amber:      #d99a55;
+  --amber-soft: rgba(217, 154, 85, 0.12);
+
+  /* font stacks */
+  --anthropic-sans:  'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --anthropic-serif: 'Fraunces', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+
+  /* alias --mono so per-page CSS that still references it gets the sans font */
+  --mono: var(--anthropic-sans);
+}
+
+html[data-theme="light"] {
+  --bg:         #faf8f4;
+  --surface:    #f2efe9;
+  --border:     rgba(0, 0, 0, 0.12);
+  --border-md:  rgba(0, 0, 0, 0.24);
+  --text:       #2a2622;
+  --muted:      #6b6862;
+  --hint:       #a09c94;
+  --accent:     #2a2622;
+  --on-accent:  #faf8f4;
+
+  --green:      #2e7d5a;
+  --green-soft: rgba(46, 125, 90, 0.10);
+  --red:        #b4423f;
+  --red-soft:   rgba(180, 66, 63, 0.08);
+  --amber:      #a6681f;
+  --amber-soft: rgba(166, 104, 31, 0.10);
+}
+
+/* body + inputs use the sans */
+body { font-family: var(--anthropic-sans); }
+input, select, textarea, button { font-family: inherit; }
+
+/* headings + hero/welcome text in the serif, for Anthropic-feel emphasis */
+h1, h2, h3,
+.hero h1,
+.welcome-greeting,
+.welcome-hero,
+.drawer h2 {
+  font-family: var(--anthropic-serif);
+  letter-spacing: 0;
+}
+
+/* Floating theme toggle; lives bottom-right, out of the way. */
+.theme-fab {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  z-index: 9998;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border: 1px solid var(--border-md);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--anthropic-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color .12s, background .12s;
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.30);
+}
+html[data-theme="light"] .theme-fab {
+  box-shadow: 0 4px 14px rgba(0,0,0,.08);
+}
+.theme-fab:hover { border-color: var(--accent); }
+
+/* Make sure cards / table headers don't look glaringly white in light mode */
+html[data-theme="light"] .card,
+html[data-theme="light"] .kpi,
+html[data-theme="light"] .op-row {
+  background: var(--surface);
+}
