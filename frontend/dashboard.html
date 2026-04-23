@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Dashboard — SpecOps</title>
+<title>Dashboard - SpecOps</title>
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -95,7 +95,7 @@
     <h1>// Dashboard</h1>
     <div class="nav" id="nav"></div>
     <div class="meta">
-      <span id="who">—</span>
+      <span id="who">-</span>
       <button class="btn tiny" id="signout">Sign out</button>
     </div>
   </div>
@@ -122,8 +122,8 @@
 <div class="drawer-bg" id="drawer-bg">
   <div class="drawer" id="drawer">
     <button class="btn tiny close" id="drawer-close">Close ×</button>
-    <h2 id="drawer-title">—</h2>
-    <div class="sub" id="drawer-sub">—</div>
+    <h2 id="drawer-title">-</h2>
+    <div class="sub" id="drawer-sub">-</div>
     <div id="drawer-body"><div class="empty">loading…</div></div>
   </div>
 </div>
@@ -179,14 +179,14 @@
     if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
     if (!res.ok) return showBanner("err", "Auth check failed: " + res.status);
     const { user } = await res.json();
-    if (user.role === "owner") user.role = "marshal";  // legacy JWT compat
-    if (!["marshal","general","chief","viewer"].includes(user.role)) {
-      return showBanner("err", `Signed in as ${user.email} (role: ${user.role || "none"}). Dashboard is for marshals, generals, chiefs, and viewers.`);
+    if (user.role === "owner") user.role = "freddy";  // legacy JWT compat
+    if (!["freddy","general","chief","viewer"].includes(user.role)) {
+      return showBanner("err", `Signed in as ${user.email} (role: ${user.role || "none"}). Dashboard is for Freddys, generals, chiefs, and viewers.`);
     }
     whoEl.textContent = `${user.email} · ${user.role}`;
 
     // role-specific nav: link to analytics + back to admin
-    const adminHref = ["marshal","general"].includes(user.role) ? "/ops-admin.html"
+    const adminHref = ["freddy","general"].includes(user.role) ? "/ops-admin.html"
                     : user.role === "chief" ? "/chief-admin.html"
                     : null;
     nav.innerHTML = `
@@ -248,13 +248,13 @@
           ? `<span class="pill warn">pending</span>`
           : `<span class="pill off">inactive</span>`;
       const r = op.report || {};
-      const dep = r.devices_deployed ?? "—";
-      const avail = r.devices_available ?? "—";
+      const dep = r.devices_deployed ?? "-";
+      const avail = r.devices_available ?? "-";
       const gh = (r.good_hours_actual ?? null) !== null
         ? `${r.good_hours_actual}${r.good_hours_projected != null ? ` / ${r.good_hours_projected}` : ""}`
-        : "—";
-      const art = r.actual_reporting_time || "—";
-      const tl  = r.time_leaving || "—";
+        : "-";
+      const art = r.actual_reporting_time || "-";
+      const tl  = r.time_leaving || "-";
       return `
         <tr class="op-row ${state}" data-op="${esc(op.op_id)}" data-date="${esc(d.date)}" data-factory="${esc(op.factory_name)}" data-shift="${esc(op.shift)}">
           <td>
@@ -262,7 +262,7 @@
             <div><code>${esc(op.op_id)}</code> · ${esc(op.location || "")}</div>
           </td>
           <td>${stateBadge}</td>
-          <td>${esc(String(r.chiefs ?? "—"))} / ${esc(String(r.captains ?? "—"))} / ${esc(String(r.operators ?? "—"))}</td>
+          <td>${esc(String(r.chiefs ?? "-"))} / ${esc(String(r.captains ?? "-"))} / ${esc(String(r.operators ?? "-"))}</td>
           <td>${esc(String(dep))} / ${esc(String(avail))}</td>
           <td>${esc(gh)}</td>
           <td>${esc(art)} → ${esc(tl)}</td>
@@ -331,7 +331,7 @@
               <div class="who">
                 <strong>${esc(p.full_name)}</strong>
                 <span class="pill mute" style="margin-left:6px">${esc(p.person_role)}</span>
-                <div class="meta">${esc(p.phone)} · PAN ${esc(p.pan_number || "—")}</div>
+                <div class="meta">${esc(p.phone)} · PAN ${esc(p.pan_number || "-")}</div>
                 <div class="loc">${esc(locStr)} · ${esc(distStr)}</div>
                 <div style="margin-top:4px">${verifyPill}</div>
               </div>

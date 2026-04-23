@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Ops — SpecOps</title>
+<title>Ops - SpecOps</title>
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -60,7 +60,7 @@
   <div class="topbar">
     <h1>// Ops</h1>
     <div class="meta">
-      <span id="who">—</span>
+      <span id="who">-</span>
       <button class="btn tiny hidden" id="signout">Sign out</button>
     </div>
   </div>
@@ -117,20 +117,20 @@
     if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
     if (!res.ok) return showBanner("err", "Auth check failed: " + res.status);
     const { user } = await res.json();
-    if (user.role === "owner") user.role = "marshal";  // legacy JWT compat
+    if (user.role === "owner") user.role = "freddy";  // legacy JWT compat
 
     whoEl.textContent = `${user.email} · ${user.role || "no role"}`;
     signoutBtn.classList.remove("hidden");
 
     const dest = {
-      marshal: "/ops/general",     // marshal shares the Ops Admin surface
+      freddy:  "/ops/general",     // Freddy shares the Ops Admin surface
       general: "/ops/general",
       chief:   "/ops/chief",
       captain: "/ops/captain",
       viewer:  "/ops/dashboard",   // viewers land straight on the dashboard
     }[user.role];
     if (dest) { location.replace(dest); return; }
-    // No role (or unknown) — someone signed in who isn't in bot_roles.
+    // No role (or unknown) - someone signed in who isn't in bot_roles.
     showBanner("err",
       `Signed in as ${user.email} but you have no assigned role. Ask a general to add you.`);
   }

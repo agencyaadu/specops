@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Chief Admin — SpecOps</title>
+<title>Chief Admin - SpecOps</title>
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -78,7 +78,7 @@
     <h1>// Chief Admin</h1>
     <div class="meta">
       <a href="/dashboard.html" style="color:var(--muted);text-decoration:none;border-bottom:1px solid var(--border);padding-bottom:2px">Dashboard →</a>
-      <span id="who">—</span>
+      <span id="who">-</span>
       <button class="btn tiny" id="signout">Sign out</button>
     </div>
   </div>
@@ -189,8 +189,8 @@
     const { user } = await res.json();
     currentUser = user;
 
-    if (user.role === "owner") user.role = "marshal";  // legacy JWT compat
-    if (!["chief","general","marshal"].includes(user.role)) {
+    if (user.role === "owner") user.role = "freddy";  // legacy JWT compat
+    if (!["chief","general","freddy"].includes(user.role)) {
       return showBanner("err",
         `Signed in as ${user.email} (role: ${user.role || "none"}). Chiefs and generals only.`);
     }
@@ -199,7 +199,7 @@
 
     // Fetch current chief perms to decide whether to show "+ New Op"
     // (generals always can; chiefs need can_create_ops)
-    let canCreate = ["marshal","general"].includes(user.role);
+    let canCreate = ["freddy","general"].includes(user.role);
     if (user.role === "chief") {
       const rr = await fetch(API + "/api/roles", { headers: authHdr() }).catch(() => null);
       // chiefs aren't allowed to call /api/roles, so probe POST /api/ops by optimistic UI: just attempt create on click and handle 403.

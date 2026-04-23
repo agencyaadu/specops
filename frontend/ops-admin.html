@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Ops Admin — SpecOps</title>
+<title>Ops Admin - SpecOps</title>
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -86,7 +86,7 @@
     <h1>// Ops Admin</h1>
     <div class="meta">
       <a href="/dashboard.html" style="color:var(--muted);text-decoration:none;border-bottom:1px solid var(--border);padding-bottom:2px">Dashboard →</a>
-      <span id="who">—</span>
+      <span id="who">-</span>
       <button class="btn tiny" id="signout">Sign out</button>
     </div>
   </div>
@@ -181,8 +181,8 @@
               <select id="r-role">
                 <option value="chief" selected>chief</option>
                 <option value="viewer">viewer (dashboard + analytics only)</option>
-                <option value="general" class="marshal-only">general (admin)</option>
-                <option value="marshal" class="marshal-only">marshal (top-tier)</option>
+                <option value="general" class="freddy-only">general (admin)</option>
+                <option value="freddy" class="freddy-only">Freddy (top-tier)</option>
               </select>
             </div>
             <div class="field" id="cco-field">
@@ -254,15 +254,15 @@
     if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
     if (!res.ok) { return showBanner("err", "Auth check failed: " + res.status); }
     const { user } = await res.json();
-    if (user.role === "owner") user.role = "marshal";  // legacy JWT compat
-    if (!["marshal", "general"].includes(user.role)) {
+    if (user.role === "owner") user.role = "freddy";  // legacy JWT compat
+    if (!["freddy", "general"].includes(user.role)) {
       return showBanner("err",
-        `Signed in as ${user.email} (role: ${user.role || "none"}). Only marshals and generals can access this page.`);
+        `Signed in as ${user.email} (role: ${user.role || "none"}). Only Freddys and generals can access this page.`);
     }
     whoEl.textContent = `${user.email} · ${user.role}`;
-    // marshal gets 'general' and 'marshal' options in the Add Role dropdown.
-    if (user.role !== "marshal") {
-      document.querySelectorAll(".marshal-only").forEach(el => el.remove());
+    // Freddy gets 'general' and 'freddy' options in the Add Role dropdown.
+    if (user.role !== "freddy") {
+      document.querySelectorAll(".freddy-only").forEach(el => el.remove());
     }
     window._currentUserRole = user.role;
     appEl.classList.remove("hidden");
@@ -298,7 +298,7 @@
       tr.innerHTML = `
         <td>${esc(op.factory_name)}<br><code>${esc(op.op_id)}</code></td>
         <td>${esc(op.shift)}</td>
-        <td>${op.poc1_name ? esc(op.poc1_name) : "—"}<br><code>${esc(op.poc1_phone || "")}</code></td>
+        <td>${op.poc1_name ? esc(op.poc1_name) : "-"}<br><code>${esc(op.poc1_phone || "")}</code></td>
         <td class="url-cell">${esc(reporterUrl)}</td>
         <td><span class="pill ${op.is_active ? 'ok' : 'off'}">${op.is_active ? 'Active' : 'Inactive'}</span></td>
         <td><span class="pill ${counts.chief ? 'ok' : 'mute'}">${counts.chief}</span></td>
@@ -459,14 +459,14 @@
     const currentRole = window._currentUserRole;
     rows.forEach(r => {
       const tr = document.createElement("tr");
-      const isMarshal = r.role === "marshal";
+      const isMarshal = r.role === "freddy";
       const isGeneral = r.role === "general";
-      const ccoAlwaysTrue = isMarshal;                 // marshal always implicitly can create
-      const ccoDisabled   = isMarshal || (isGeneral && currentRole !== "marshal");
+      const ccoAlwaysTrue = isMarshal;                 // Freddy always implicitly can create
+      const ccoDisabled   = isMarshal || (isGeneral && currentRole !== "freddy");
       // Caller must outrank target to remove it (marshal > general > chief/viewer).
-      // Marshal can remove other marshals; general cannot touch marshal or other generals.
+      // Marshal can remove other Freddys; general cannot touch marshal or other generals.
       const canRemove = (
-        (currentRole === "marshal") ||
+        (currentRole === "freddy") ||
         (currentRole === "general" && !isMarshal && !isGeneral)
       );
       const pillClass = isMarshal ? "ok" : isGeneral ? "ok" : "";

@@ -151,13 +151,13 @@ CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance(report_date);
 CREATE_BOT_ROLES = """
 CREATE TABLE IF NOT EXISTS bot_roles (
     email           TEXT PRIMARY KEY ,
-    role            TEXT NOT NULL CHECK (role IN ('marshal','general','chief','captain','viewer')) ,
+    role            TEXT NOT NULL CHECK (role IN ('freddy','general','chief','captain','viewer')) ,
     can_create_ops  BOOLEAN NOT NULL DEFAULT FALSE ,
     added_at        TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE bot_roles ADD COLUMN IF NOT EXISTS can_create_ops BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE bot_roles DROP CONSTRAINT IF EXISTS bot_roles_role_check;
-ALTER TABLE bot_roles ADD CONSTRAINT bot_roles_role_check CHECK (role IN ('marshal','general','chief','captain','viewer'));
+ALTER TABLE bot_roles ADD CONSTRAINT bot_roles_role_check CHECK (role IN ('freddy','general','chief','captain','viewer'));
 """
 
 CREATE_NOTES = """
@@ -203,13 +203,13 @@ async def init_db(pool: asyncpg.Pool):
         await _seed_admins(conn)
 
 async def _seed_admins(conn: asyncpg.Connection):
-    # MARSHAL_EMAILS takes precedence — marshals can add/remove generals and
-    # other marshals. GENERAL_EMAILS seeds secondary admins.
-    # OWNER_EMAILS is accepted too for backwards compatibility with the
-    # initial rollout; treated as marshal.
+    # FREDDY_EMAILS seeds the top-tier role; MARSHAL_EMAILS / OWNER_EMAILS
+    # remain accepted as legacy aliases (both upgrade to 'freddy').
+    # GENERAL_EMAILS seeds second-tier admins.
     for env_var, role in (
-        ("MARSHAL_EMAILS", "marshal"),
-        ("OWNER_EMAILS",   "marshal"),   # legacy alias
+        ("FREDDY_EMAILS",  "freddy"),
+        ("MARSHAL_EMAILS", "freddy"),   # legacy alias
+        ("OWNER_EMAILS",   "freddy"),   # legacy alias
         ("GENERAL_EMAILS", "general"),
     ):
         raw = os.environ.get(env_var, "").strip()
@@ -222,9 +222,9 @@ async def _seed_admins(conn: asyncpg.Connection):
                 INSERT INTO bot_roles (email, role) VALUES ($1, $2)
                 ON CONFLICT (email) DO UPDATE SET
                     role = CASE
-                        -- never downgrade: an existing marshal stays marshal
-                        WHEN bot_roles.role = 'marshal' THEN 'marshal'
-                        WHEN EXCLUDED.role = 'marshal' THEN 'marshal'
+                        -- never downgrade an existing Freddy
+                        WHEN bot_roles.role = 'freddy' THEN 'freddy'
+                        WHEN EXCLUDED.role = 'freddy' THEN 'freddy'
                         ELSE EXCLUDED.role
                     END
                 """,

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Captain — SpecOps</title>
+<title>Captain - SpecOps</title>
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -76,7 +76,7 @@
   <div class="topbar">
     <h1>// Captain</h1>
     <div class="meta">
-      <span id="who">—</span>
+      <span id="who">-</span>
       <button class="btn tiny" id="signout">Sign out</button>
     </div>
   </div>
@@ -88,7 +88,7 @@
     <section class="card">
       <div class="card-head">
         <span><span class="slash">//</span>&nbsp; Your Operations</span>
-        <span id="today-tag">—</span>
+        <span id="today-tag">-</span>
       </div>
       <div class="card-body" style="padding:14px 16px">
         <div id="ops-host"><div class="empty">loading…</div></div>
@@ -100,7 +100,7 @@
         <span><span class="slash">//</span>&nbsp; Say Something</span>
       </div>
       <div class="card-body">
-        <p class="note-hint">Drop a journal entry, flag something, or leave a greeting. Your note goes to the generals — they'll follow up if needed.</p>
+        <p class="note-hint">Drop a journal entry, flag something, or leave a greeting. Your note goes to the generals - they'll follow up if needed.</p>
         <div class="row2" style="margin-top:10px">
           <div class="field">
             <label>Kind</label>
@@ -113,7 +113,7 @@
           </div>
           <div class="field">
             <label>About which op? (optional)</label>
-            <select id="n-op"><option value="">— all / general —</option></select>
+            <select id="n-op"><option value="">- all / general -</option></select>
           </div>
         </div>
         <div class="field">
@@ -181,8 +181,8 @@
     if (!res.ok) return showBanner("err", "Auth check failed: " + res.status);
     const { user } = await res.json();
     whoEl.textContent = `${user.email} · ${user.role || "no role"}`;
-    if (user.role === "owner") user.role = "marshal";  // legacy JWT compat
-    if (!["captain","chief","general","marshal"].includes(user.role)) {
+    if (user.role === "owner") user.role = "freddy";  // legacy JWT compat
+    if (!["captain","chief","general","freddy"].includes(user.role)) {
       return showBanner("err", "No role assigned. Ask a general to add you.");
     }
     appEl.classList.remove("hidden");
@@ -202,7 +202,7 @@
 
     const pending = rows.filter(o => o.is_active && !o.already_submitted);
     if (pending.length > 0) {
-      showReminder("warn", `Daily report reminder — ${pending.length} of your operations haven't been filled today.`);
+      showReminder("warn", `Daily report reminder - ${pending.length} of your operations haven't been filled today.`);
     } else {
       const anyActive = rows.some(o => o.is_active);
       if (anyActive) showReminder("ok", "Today's reports are all submitted. Nice.");

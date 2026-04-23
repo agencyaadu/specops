@@ -14,7 +14,7 @@ from routers.reports import today_ist
 
 router = APIRouter()
 
-reporter_or_admin = require_current_role("marshal", "general", "chief", "captain")
+reporter_or_admin = require_current_role("freddy", "general", "chief", "captain")
 ALLOWED_PERSON_ROLES = {"chief", "captain", "operator"}
 
 ALLOWED_PHOTO_MIMES = {"image/jpeg", "image/heic", "image/heif"}

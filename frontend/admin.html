@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Admin — SpecOps</title>
+<title>Admin - SpecOps</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -238,7 +238,7 @@
       <div class="card-body">
         <div class="toolbar">
           <input type="text" id="search" placeholder="Search name or email..." />
-          <span class="count" id="count">—</span>
+          <span class="count" id="count">-</span>
           <button type="button" class="btn" onclick="loadList()">Refresh</button>
           <button type="button" class="btn" id="sync-btn" onclick="syncSheets()">Sync Sheets</button>
         </div>
@@ -368,7 +368,7 @@ function renderTable(rows) {
     return;
   }
   const fmt = iso => {
-    if (!iso) return '—';
+    if (!iso) return '-';
     const d = new Date(iso);
     return d.toISOString().slice(0, 16).replace('T', ' ');
   };
@@ -468,7 +468,7 @@ function renderDetail(r) {
       } else if (typeof val === 'boolean') {
         valHtml = val ? '<span class="ok-dot">● yes</span>' : '<span class="bad-dot">● no</span>';
       } else {
-        valHtml = isEmpty ? '<span class="empty-val">—</span>' : esc(val);
+        valHtml = isEmpty ? '<span class="empty-val">-</span>' : esc(val);
       }
       const ddClass = isEmpty && !(k === 'consented' || k === 'consented_terms') ? ' class="empty-val"' : '';
       return `<dl class="kv"><dt>${esc(label)}</dt><dd${ddClass}>${valHtml}</dd></dl>`;

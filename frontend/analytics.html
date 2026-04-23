@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Analytics — SpecOps</title>
+<title>Analytics - SpecOps</title>
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -83,7 +83,7 @@
     <h1>// Analytics</h1>
     <div class="nav" id="nav"></div>
     <div class="meta">
-      <span id="who">—</span>
+      <span id="who">-</span>
       <button class="btn tiny" id="signout">Sign out</button>
     </div>
   </div>
@@ -193,12 +193,12 @@
     if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
     if (!res.ok) return showBanner("err", "Auth check failed: " + res.status);
     const { user } = await res.json();
-    if (user.role === "owner") user.role = "marshal";  // legacy JWT compat
-    if (!["marshal","general","chief","viewer"].includes(user.role)) {
-      return showBanner("err", `Signed in as ${user.email} (role: ${user.role || "none"}). Analytics is for marshals, generals, chiefs, and viewers.`);
+    if (user.role === "owner") user.role = "freddy";  // legacy JWT compat
+    if (!["freddy","general","chief","viewer"].includes(user.role)) {
+      return showBanner("err", `Signed in as ${user.email} (role: ${user.role || "none"}). Analytics is for Freddys, generals, chiefs, and viewers.`);
     }
     whoEl.textContent = `${user.email} · ${user.role}`;
-    const adminHref = ["marshal","general"].includes(user.role) ? "/ops-admin.html"
+    const adminHref = ["freddy","general"].includes(user.role) ? "/ops-admin.html"
                     : user.role === "chief" ? "/chief-admin.html"
                     : null;
     nav.innerHTML = `
@@ -247,8 +247,8 @@
     renderTable(lastData.rows);
   }
 
-  function fmtPct(v) { return v == null ? "—" : (v * 100).toFixed(1) + "%"; }
-  function fmtNum(v) { return v == null ? "—" : (typeof v === "number" && v % 1 !== 0) ? v.toFixed(1) : String(v); }
+  function fmtPct(v) { return v == null ? "-" : (v * 100).toFixed(1) + "%"; }
+  function fmtNum(v) { return v == null ? "-" : (typeof v === "number" && v % 1 !== 0) ? v.toFixed(1) : String(v); }
 
   function renderSummary(k) {
     const host = document.getElementById("summary");
@@ -256,7 +256,7 @@
       { label: "Deployed rate",    value: fmtPct(k.deployed_rate),   sub: `${k.devices_deployed}/${k.devices_available} dev` },
       { label: "Reporting rate",   value: fmtPct(k.reporting_rate),  sub: `${k.reports_submitted} reports / ${k.active_ops} active-days` },
       { label: "Verified att %",   value: fmtPct(k.verified_rate),   sub: `${k.attendance_verified}/${k.attendance_total} verified` },
-      { label: "Good hours",       value: k.good_hours_actual == null ? "—" : fmtNum(k.good_hours_actual), sub: k.good_hours_projected ? `of ${fmtNum(k.good_hours_projected)} projected` : "" },
+      { label: "Good hours",       value: k.good_hours_actual == null ? "-" : fmtNum(k.good_hours_actual), sub: k.good_hours_projected ? `of ${fmtNum(k.good_hours_projected)} projected` : "" },
       { label: "SD utilization",   value: fmtPct(k.sd_utilization),  sub: `${fmtNum(k.sd_used)} used / ${fmtNum(k.sd_left)} left` },
     ];
     host.innerHTML = cards.map(c => `
@@ -273,7 +273,7 @@
   }
 
   function formatMetric(metric, v) {
-    if (v == null) return "—";
+    if (v == null) return "-";
     if (isPct(metric)) return (v * 100).toFixed(1) + "%";
     return (typeof v === "number" && v % 1 !== 0) ? v.toFixed(1) : String(v);
   }
@@ -291,7 +291,7 @@
       const cls = (isPct(metric) && v != null && v < 0.5) ? "warn" : "";
       return `
         <div class="chart-row ${cls}">
-          <div class="label">${esc(r.key || "—")}</div>
+          <div class="label">${esc(r.key || "-")}</div>
           <div class="bar-track"><div class="bar-fill" style="width:${pct.toFixed(1)}%"></div></div>
           <div class="val">${esc(formatMetric(metric, v))}</div>
         </div>

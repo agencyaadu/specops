@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Daily Report — SpecOps</title>
+<title>Daily Report - SpecOps</title>
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -82,7 +82,7 @@
 <div class="page">
   <div class="topbar">
     <h1>// Daily Report</h1>
-    <div class="meta" id="meta">—</div>
+    <div class="meta" id="meta">-</div>
   </div>
 
   <div class="quick-nav hidden" id="quick-nav" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1rem"></div>
@@ -229,19 +229,19 @@
   }
 
   function renderQuickNav(ctx) {
-    // ctx.my_role is injected by /api/op/{op_id} — normalise owner->marshal for legacy JWTs.
+    // ctx.my_role is injected by /api/op/{op_id} - normalise owner->marshal for legacy JWTs.
     let role = ctx.my_role || "";
-    if (role === "owner") role = "marshal";
+    if (role === "owner") role = "freddy";
     const host = document.getElementById("quick-nav");
     const links = [];
-    // Edit op details — chiefs do this via Chief Admin for their assigned ops;
+    // Edit op details - chiefs do this via Chief Admin for their assigned ops;
     // generals/marshals do it via Ops Admin.
     if (role === "chief") {
       links.push(`<a class="btn ghost" href="/chief-admin.html" target="_blank" rel="noopener">Edit op details →</a>`);
-    } else if (["general", "marshal"].includes(role)) {
+    } else if (["general", "freddy"].includes(role)) {
       links.push(`<a class="btn ghost" href="/ops-admin.html" target="_blank" rel="noopener">Ops admin →</a>`);
     }
-    if (["chief","general","marshal","viewer"].includes(role)) {
+    if (["chief","general","freddy","viewer"].includes(role)) {
       links.push(`<a class="btn ghost" href="/dashboard.html" target="_blank" rel="noopener">Dashboard →</a>`);
     }
     if (links.length) {
@@ -280,7 +280,7 @@
   }
 
   function joinLine(...parts) { return parts.filter(Boolean).join(" · "); }
-  function joinRange(a,b) { return a && b ? `${a} — ${b}` : (a || b || ""); }
+  function joinRange(a,b) { return a && b ? `${a} - ${b}` : (a || b || ""); }
   function esc(v) {
     if (v === null || v === undefined) return "";
     return String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -464,7 +464,7 @@
       if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
       const j = await res.json().catch(() => ({}));
       if (!res.ok) { alert("Submit failed: " + (j.detail || res.status)); return; }
-      // Local CSV backup of exactly what we sent — downloaded automatically.
+      // Local CSV backup of exactly what we sent - downloaded automatically.
       try { downloadCsv(payload.json); } catch (e) { console.warn("csv export failed", e); }
       appEl.classList.add("hidden");
       showBanner("ok", "Report submitted. A CSV backup has been saved to your device.");

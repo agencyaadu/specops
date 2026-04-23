@@ -8,12 +8,12 @@ router = APIRouter()
 
 # Role management belongs to marshal + general. Each handler enforces the
 # hierarchy inside: marshal > general > chief / viewer / captain.
-marshal_or_general = require_current_role("marshal", "general")
+freddy_or_general = require_current_role("freddy", "general")
 
 
 class RoleIn(BaseModel):
     email: EmailStr
-    role: Literal["marshal", "general", "chief", "viewer"] = "chief"
+    role: Literal["freddy", "general", "chief", "viewer"] = "chief"
     can_create_ops: bool = False
 
 
@@ -30,15 +30,15 @@ def _row_out(row) -> dict:
 
 def _caller_can_target(caller_role: str, target_role: str) -> bool:
     """marshal can touch anyone; general can only touch chief/viewer."""
-    if caller_role == "marshal":
-        return target_role in ("marshal", "general", "chief", "viewer", "captain")
+    if caller_role == "freddy":
+        return target_role in ("freddy", "general", "chief", "viewer", "captain")
     if caller_role == "general":
         return target_role in ("chief", "viewer")
     return False
 
 
 @router.get("")
-async def list_roles(request: Request, _claims: dict = Depends(marshal_or_general)):
+async def list_roles(request: Request, _claims: dict = Depends(freddy_or_general)):
     rows = await request.app.state.db.fetch(
         "SELECT email, role, can_create_ops, added_at FROM bot_roles ORDER BY added_at DESC"
     )
@@ -46,7 +46,7 @@ async def list_roles(request: Request, _claims: dict = Depends(marshal_or_genera
 
 
 @router.post("")
-async def add_role(body: RoleIn, request: Request, claims: dict = Depends(marshal_or_general)):
+async def add_role(body: RoleIn, request: Request, claims: dict = Depends(freddy_or_general)):
     """Marshal: can add marshal / general / chief / viewer.
        General: can only add chief / viewer.
     """
@@ -56,7 +56,7 @@ async def add_role(body: RoleIn, request: Request, claims: dict = Depends(marsha
 
     email = body.email.lower()
     # Only chief / general / marshal can be flagged can_create_ops; viewer always false.
-    cco = body.can_create_ops if body.role in ("chief", "general", "marshal") else False
+    cco = body.can_create_ops if body.role in ("chief", "general", "freddy") else False
 
     existing = await request.app.state.db.fetchval(
         "SELECT role FROM bot_roles WHERE email = $1", email,
@@ -78,7 +78,7 @@ async def add_role(body: RoleIn, request: Request, claims: dict = Depends(marsha
 
 
 @router.patch("/{email}")
-async def patch_perms(email: str, body: PermPatch, request: Request, claims: dict = Depends(marshal_or_general)):
+async def patch_perms(email: str, body: PermPatch, request: Request, claims: dict = Depends(freddy_or_general)):
     if body.can_create_ops is None:
         raise HTTPException(400, "nothing to update")
     target_row = await request.app.state.db.fetchrow(
@@ -99,7 +99,7 @@ async def patch_perms(email: str, body: PermPatch, request: Request, claims: dic
 
 
 @router.delete("/{email}")
-async def delete_role(email: str, request: Request, claims: dict = Depends(marshal_or_general)):
+async def delete_role(email: str, request: Request, claims: dict = Depends(freddy_or_general)):
     target = email.lower()
     if target == (claims.get("email") or "").lower():
         raise HTTPException(400, "cannot remove your own role")

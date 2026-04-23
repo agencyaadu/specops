@@ -19,7 +19,7 @@ router = APIRouter()
 
 IST = ZoneInfo("Asia/Kolkata")
 
-analytics_roles = require_current_role("marshal", "general", "chief", "viewer")
+analytics_roles = require_current_role("freddy", "general", "chief", "viewer")
 
 
 def _parse_date(s: str, label: str) -> date:
@@ -157,7 +157,7 @@ async def analytics(
 
     email = (claims.get("email") or "").lower()
     # general + viewer get the full-India view; chief is scoped to assignments.
-    if claims["role"] in ("marshal", "general", "viewer"):
+    if claims["role"] in ("freddy", "general", "viewer"):
         scope_join = ""
         params = [from_d, to_d]
     else:

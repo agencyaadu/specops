@@ -106,3 +106,13 @@ html[data-theme="light"] .kpi,
 html[data-theme="light"] .op-row {
   background: var(--surface);
 }
+
+/* Full viewport width: drop the per-page max-width caps and use comfortable
+ * padding instead. The previous ~820-1200px caps left lots of dead space on
+ * wider displays; now tables and forms can breathe on laptop/desktop screens. */
+.page {
+  max-width: none !important;
+  width: 100%;
+  padding-left:  clamp(16px, 3vw, 40px) !important;
+  padding-right: clamp(16px, 3vw, 40px) !important;
+}
