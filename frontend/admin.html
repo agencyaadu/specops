@@ -238,7 +238,9 @@
           <input type="text" id="search" placeholder="Search name or email..." />
           <span class="count" id="count">—</span>
           <button type="button" class="btn" onclick="loadList()">Refresh</button>
+          <button type="button" class="btn" id="sync-btn" onclick="syncSheets()">Sync Sheets</button>
         </div>
+        <div class="log" id="sync-log" style="margin-top:8px"></div>
         <div id="table-wrap" style="margin-top:16px">
           <div class="loading">Loading...</div>
         </div>
@@ -472,6 +474,28 @@ function renderDetail(r) {
     parts.push(rows);
   }
   return parts.join('');
+}
+
+/* --- sheets sync --- */
+async function syncSheets() {
+  const token = getToken();
+  if (!token) { showLogin(); return; }
+  const btn = document.getElementById('sync-btn');
+  btn.disabled = true;
+  setLog('sync-log', 'Syncing to Google Sheets...', '');
+  try {
+    const res = await fetch(API + '/admin/sync-sheets', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'sync failed');
+    setLog('sync-log', 'Synced ' + data.synced + ' rows to Google Sheets.', 'ok');
+  } catch (err) {
+    setLog('sync-log', err.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 /* --- entry --- */

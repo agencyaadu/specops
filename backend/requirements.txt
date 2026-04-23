@@ -8,3 +8,5 @@ cryptography==42.0.7
 python-multipart==0.0.9
 pillow==10.3.0
 pillow-heif==0.16.0
+google-api-python-client==2.126.0
+google-auth==2.29.0

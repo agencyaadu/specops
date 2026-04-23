@@ -1,11 +1,16 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request
 import asyncio
+import logging
 import os
 import re
 import uuid
+from datetime import datetime, timezone
 
 from crypto import encrypt
 from storage import upload_to_storage
+import sheets as _sheets
+
+log = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -143,5 +148,31 @@ async def submit(
         pan_url, clean_video_url,
         consented, consented_terms,
     )
+
+    if _sheets.sheets_enabled():
+        sheet_data = {
+            "id": row_id,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "full_name": full_name, "whatsapp": whatsapp, "email": email,
+            "alt_email": alt_email, "occupation": occupation, "google_id": google_id,
+            "telegram_id": telegram_id, "discord_id": discord_id,
+            "twitter_id": twitter_id, "referred_by": referred_by,
+            "languages": lang_list, "hardest_problem": hardest_problem,
+            "health_notes": health_notes,
+            "address_line1": address_line1, "address_line2": address_line2,
+            "pincode": pincode, "city": city, "state": state,
+            "upi_id": upi_id, "beneficiary_name": beneficiary_name,
+            "account_number": account_number,
+            "ifsc_code": ifsc_code, "bank_name": bank_name, "branch_name": branch_name,
+            "pan_number": pan_number,
+            "pan_card_url": pan_url, "intro_video_url": clean_video_url,
+            "consented": consented, "consented_terms": consented_terms,
+        }
+        async def _push():
+            try:
+                await asyncio.to_thread(_sheets.append_row, sheet_data)
+            except Exception:
+                log.exception("sheets append failed for submission %s", row_id)
+        asyncio.create_task(_push())
 
     return {"ok": True, "id": row_id}

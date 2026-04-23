@@ -22,8 +22,12 @@ _allowed_origins = [o.strip() for o in os.environ["ALLOWED_ORIGINS"].split(",") 
 if not _allowed_origins or "*" in _allowed_origins:
     raise SystemExit("FATAL: ALLOWED_ORIGINS must be an explicit comma-separated list (no wildcard)")
 
+import logging
 from routers import submissions, auth, admin, ops, reports, daily, roles, assignments, notes, dashboard, analytics
 from db import init_db
+import sheets as _sheets
+
+_log = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -35,6 +39,12 @@ async def lifespan(app: FastAPI):
         max_size=10,
     )
     await init_db(app.state.db)
+    if _sheets.sheets_enabled():
+        try:
+            import asyncio
+            await asyncio.to_thread(_sheets.ensure_header)
+        except Exception:
+            _log.warning("sheets header init failed", exc_info=True)
     yield
     await app.state.db.close()
 

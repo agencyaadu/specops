@@ -1,12 +1,14 @@
 from fastapi import APIRouter, Request, HTTPException, Header, Query
 from pydantic import BaseModel
 from typing import Optional
+import asyncio
 import hmac
 import os
 import time
 import jwt
 
 from crypto import decrypt
+import sheets as _sheets
 
 router = APIRouter()
 
@@ -100,6 +102,20 @@ async def list_submissions(
         )
     total = await db.fetchval("SELECT COUNT(*) FROM submissions")
     return {"total": total, "rows": [_row_to_dict(r) for r in rows]}
+
+@router.post("/sync-sheets")
+async def sync_sheets(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+):
+    _require_admin(authorization)
+    if not _sheets.sheets_enabled():
+        raise HTTPException(503, "Google Sheets not configured (GOOGLE_SHEETS_ID / GOOGLE_SERVICE_ACCOUNT_JSON missing)")
+    db = request.app.state.db
+    rows = await db.fetch("SELECT * FROM submissions ORDER BY id ASC")
+    dicts = [_row_to_dict(r) for r in rows]
+    await asyncio.to_thread(_sheets.full_sync, dicts)
+    return {"synced": len(dicts)}
 
 @router.get("/submissions/{sub_id}")
 async def get_submission(

@@ -1,5 +1,6 @@
 # env & secrets — NEVER commit
 .env
+.env.ops
 *.env.local
 *.env.production
 
