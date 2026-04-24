@@ -43,8 +43,6 @@ def _rollup(rows) -> dict:
     dep   = sum(_as_float(r["sum_deployed"])  for r in rows)
     lost  = sum(_as_float(r["sum_lost"])      for r in rows)
     recov = sum(_as_float(r["sum_recovered"]) for r in rows)
-    gh_a  = sum(_as_float(r["sum_gh_actual"]) for r in rows)
-    gh_p  = sum(_as_float(r["sum_gh_proj"])   for r in rows)
     sd_u  = sum(_as_float(r["sum_sd_used"])   for r in rows)
     sd_l  = sum(_as_float(r["sum_sd_left"])   for r in rows)
     att   = sum(_as_float(r["att_count"])     for r in rows)
@@ -53,9 +51,6 @@ def _rollup(rows) -> dict:
     active = sum(_as_float(r["active_ops"])   for r in rows)
     return {
         "deployed_rate":       (dep / avail) if avail > 0 else None,
-        "good_hours_actual":   gh_a,
-        "good_hours_projected":gh_p,
-        "good_hours_ratio":    (gh_a / gh_p) if gh_p > 0 else None,
         "sd_used":             sd_u,
         "sd_left":             sd_l,
         "sd_utilization":      (sd_u / (sd_u + sd_l)) if (sd_u + sd_l) > 0 else None,
@@ -98,8 +93,6 @@ def _build_sql(group_col: str, scope_join: str, scope_param_count: int) -> str:
                  COALESCE(devices_deployed,0)   AS deployed,
                  COALESCE(devices_lost,0)       AS lost,
                  COALESCE(devices_recovered,0)  AS recovered,
-                 COALESCE(good_hours_actual,0)  AS gh_actual,
-                 COALESCE(good_hours_projected,0) AS gh_proj,
                  COALESCE(sd_cards_used,0)      AS sd_used,
                  COALESCE(sd_cards_left,0)      AS sd_left
             FROM daily_reports
@@ -121,8 +114,6 @@ def _build_sql(group_col: str, scope_join: str, scope_param_count: int) -> str:
           COALESCE(SUM(r.deployed),    0) AS sum_deployed,
           COALESCE(SUM(r.lost),        0) AS sum_lost,
           COALESCE(SUM(r.recovered),   0) AS sum_recovered,
-          COALESCE(SUM(r.gh_actual),   0) AS sum_gh_actual,
-          COALESCE(SUM(r.gh_proj),     0) AS sum_gh_proj,
           COALESCE(SUM(r.sd_used),     0) AS sum_sd_used,
           COALESCE(SUM(r.sd_left),     0) AS sum_sd_left,
           COALESCE(SUM(a.att_count),   0) AS att_count,

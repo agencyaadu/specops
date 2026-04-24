@@ -121,10 +121,7 @@ CREATE TABLE IF NOT EXISTS daily_reports (
     devices_deployed        INT ,
     devices_lost            INT ,
     devices_recovered       INT ,
-    good_hours_projected    NUMERIC ,
-    good_hours_actual       NUMERIC ,
     actual_reporting_time   TIME ,
-    time_leaving            TIME ,
     submitted_by_email      TEXT ,
     submitted_at            TIMESTAMPTZ DEFAULT NOW() ,
     UNIQUE (op_id, report_date)
