@@ -115,41 +115,35 @@
     stroke: rgba(255,255,255,0.18);
     stroke-width: 1;
     stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
   }
+  .state-borders { vector-effect: non-scaling-stroke; }
 
-  .pin {
-    cursor: pointer;
-    transition: transform .12s;
-    transform-origin: center;
-  }
-  .pin:hover { transform: scale(1.6); }
-  .pin .core {
-    transition: r .12s;
-  }
-  .pin.green .core { fill: var(--green); filter: drop-shadow(0 0 6px rgba(62,207,142,.75)); }
-  .pin.amber .core { fill: var(--amber); filter: drop-shadow(0 0 6px rgba(245,165,36,.75)); }
-  .pin.red   .core { fill: var(--red);   filter: drop-shadow(0 0 5px rgba(248,113,113,.6)); }
+  .pin { cursor: pointer; }
+  .pin:hover .core { r: 7; }
+  .pin .core { transition: r .12s; }
+  .pin.green .core { fill: var(--green); }
+  .pin.amber .core { fill: var(--amber); }
+  .pin.red   .core { fill: var(--red); }
+  /* Static halos: a fat semi-transparent ring around the core. No
+     animation, no filter, no drop-shadow — those force a repaint of
+     the entire SVG layer every frame which kills FPS when zoomed in. */
   .pin.green .halo { fill: var(--green); opacity:.18; }
   .pin.amber .halo { fill: var(--amber); opacity:.16; }
   .pin.red   .halo { fill: var(--red);   opacity:.14; }
   .pin.selected .core { stroke: #fff; stroke-width: 1.4; }
 
-  /* breathing halos */
-  @keyframes pulse {
-    0%   { transform: scale(1);   opacity: 0.45; }
-    70%  { transform: scale(2.2); opacity: 0;    }
-    100% { transform: scale(2.2); opacity: 0;    }
-  }
-  .pin .halo { animation: pulse 2.6s ease-out infinite; transform-origin: center; transform-box: fill-box; }
-  .pin.amber .halo { animation-duration: 1.8s; }
-
   .city-cluster-label {
-    fill: rgba(255,255,255,0.65);
+    fill: rgba(255,255,255,0.78);
     font-family: var(--mono);
     font-size: 9px;
     letter-spacing: .14em;
     text-transform: uppercase;
     pointer-events: none;
+    paint-order: stroke;
+    stroke: rgba(0,0,0,0.85);
+    stroke-width: 2.4;
+    stroke-linejoin: round;
   }
 
   .map-tooltip {
@@ -596,6 +590,11 @@ const CITY_COORDS = {
   "anantapur":          [14.6819, 77.6006],
   "rajpura":            [30.4837, 76.5938],
   "bawana":             [28.7905, 77.0387],
+  "mandi gobindgarh":   [30.6629, 76.3017],
+  "gobindgarh":         [30.6629, 76.3017],
+  "khanna":             [30.7058, 76.2222],
+  "bathinda":           [30.2110, 74.9455],
+  "moga":               [30.8136, 75.1717],
   "guwahati":           [26.1445, 91.7362],
   "shillong":           [25.5788, 91.8933],
   "agartala":           [23.8315, 91.2868],
@@ -874,7 +873,9 @@ function locationToCoord(loc) {
     document.getElementById("s-pend").textContent  = pend;
     document.getElementById("s-off").textContent   = off;
 
-    // Render pins. If a bucket has multiple ops, jitter them in a small ring.
+    // First pass: render the pins. Collect label requests so we can place
+    // them in a second pass with collision avoidance.
+    const labelRequests = [];   // {cx, cy, text}
     for (const { coord, name, ops, unrecognised } of buckets.values()) {
       const [lat, lng] = coord;
       const [cx, cy] = project(lat, lng);
@@ -890,9 +891,7 @@ function locationToCoord(loc) {
         const status = statusOf(op);
         const g = svgEl("g", { class: "pin " + status, transform: `translate(${px} ${py})` });
         if (selectedOpId === op.op_id) g.classList.add("selected");
-        // Halo (animated)
-        g.appendChild(svgEl("circle", { class: "halo", r: 6, cx: 0, cy: 0 }));
-        // Core
+        g.appendChild(svgEl("circle", { class: "halo", r: 9, cx: 0, cy: 0 }));
         const core = svgEl("circle", { class: "core", r: 4.5, cx: 0, cy: 0 });
         g.appendChild(core);
         g.addEventListener("click", () => openDrawer(op.op_id));
@@ -902,9 +901,59 @@ function locationToCoord(loc) {
         pins.appendChild(g);
       });
 
-      // City label (only once per bucket)
-      const lbl = svgEl("text", { class: "city-cluster-label", x: cx + 12, y: cy + 3 });
-      lbl.textContent = label;
+      labelRequests.push({ cx, cy, text: label });
+    }
+
+    // Second pass: place labels with greedy collision avoidance.
+    // Try a list of candidate offsets for each label; first one that
+    // doesn't overlap any already-placed label wins.
+    const placed = [];   // {x, y, w, h}
+    const APPROX_CHAR_W = 5.4;     // SVG units, matches font-size:9 + .14em letter-spacing
+    const LINE_H = 11;
+    const candidates = [
+      [12,  3, "start"],
+      [12, -8, "start"],
+      [12, 14, "start"],
+      [-12, 3, "end"],
+      [-12,-8, "end"],
+      [-12,14, "end"],
+      [0,  16, "middle"],
+      [0, -10, "middle"],
+    ];
+    function rectsOverlap(a, b) {
+      return !(a.x + a.w < b.x || b.x + b.w < a.x ||
+               a.y + a.h < b.y || b.y + b.h < a.y);
+    }
+    for (const req of labelRequests) {
+      const w = req.text.length * APPROX_CHAR_W;
+      let chosen = candidates[0], chosenRect = null;
+      for (const c of candidates) {
+        const [dx, dy, anchor] = c;
+        const x = anchor === "end"   ? req.cx + dx - w
+               : anchor === "middle" ? req.cx + dx - w / 2
+               :                       req.cx + dx;
+        const rect = { x, y: req.cy + dy - LINE_H + 3, w, h: LINE_H };
+        if (!placed.some(p => rectsOverlap(p, rect))) {
+          chosen = c; chosenRect = rect; break;
+        }
+      }
+      if (!chosenRect) {
+        // Couldn't avoid collision — use first candidate anyway.
+        const [dx, , anchor] = chosen;
+        const x = anchor === "end" ? req.cx + dx - w
+               : anchor === "middle" ? req.cx + dx - w / 2
+               :                       req.cx + dx;
+        chosenRect = { x, y: req.cy - LINE_H + 6, w, h: LINE_H };
+      }
+      placed.push(chosenRect);
+      const [dx, dy, anchor] = chosen;
+      const lbl = svgEl("text", {
+        class: "city-cluster-label",
+        x: req.cx + dx,
+        y: req.cy + dy,
+        "text-anchor": anchor,
+      });
+      lbl.textContent = req.text;
       labels.appendChild(lbl);
     }
 
@@ -1355,28 +1404,43 @@ function locationToCoord(loc) {
     zoomBy(factor, sx, sy);
   }, { passive: false });
 
-  // Click-and-drag to pan
-  let panOrigin = null; // { svgX, svgY, vbX, vbY }
+  // Click-and-drag to pan. Track screen-pixel deltas vs. the original
+  // viewBox so the math doesn't feedback-loop on each move.
+  let panOrigin = null;            // { clientX, clientY, vbX, vbY, scaleX, scaleY }
+  let panQueued = false;
+  let lastPan = null;
   stage.addEventListener("pointerdown", (e) => {
-    if (e.target.closest(".pin")) return;       // don't hijack pin clicks
+    if (e.target.closest(".pin")) return;
     if (e.target.closest("input,button,a")) return;
     stage.setPointerCapture(e.pointerId);
-    const [sx, sy] = clientToSvg(e.clientX, e.clientY);
-    panOrigin = { sx, sy, vbX: currentVB.x, vbY: currentVB.y };
+    const r = svg.getBoundingClientRect();
+    panOrigin = {
+      clientX: e.clientX, clientY: e.clientY,
+      vbX: currentVB.x, vbY: currentVB.y,
+      scaleX: currentVB.w / r.width,
+      scaleY: currentVB.h / r.height,
+    };
   });
   stage.addEventListener("pointermove", (e) => {
     if (!panOrigin) return;
-    const r = svg.getBoundingClientRect();
-    const dx = (e.clientX - (r.left + r.width  * (panOrigin.sx - currentVB.x) / currentVB.w));
-    // Simpler: convert current mouse to svg under FRESH viewBox (since we drag), then offset
-    const cur = clientToSvg(e.clientX, e.clientY);
-    currentVB.x = panOrigin.vbX + (panOrigin.sx - cur[0]);
-    currentVB.y = panOrigin.vbY + (panOrigin.sy - cur[1]);
-    clampVB();
-    applyVB();
+    lastPan = { x: e.clientX, y: e.clientY };
+    if (panQueued) return;
+    panQueued = true;
+    requestAnimationFrame(() => {
+      panQueued = false;
+      if (!panOrigin || !lastPan) return;
+      const dx = (lastPan.x - panOrigin.clientX) * panOrigin.scaleX;
+      const dy = (lastPan.y - panOrigin.clientY) * panOrigin.scaleY;
+      currentVB.x = panOrigin.vbX - dx;
+      currentVB.y = panOrigin.vbY - dy;
+      clampVB();
+      applyVB();
+    });
   });
-  stage.addEventListener("pointerup",   () => { panOrigin = null; });
-  stage.addEventListener("pointercancel",() => { panOrigin = null; });
+  function endPan() { panOrigin = null; lastPan = null; }
+  stage.addEventListener("pointerup",     endPan);
+  stage.addEventListener("pointercancel", endPan);
+  stage.addEventListener("pointerleave",  endPan);
 
   // Search box: populate datalist with state + city names; on change,
   // look up and zoom.
