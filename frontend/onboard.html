@@ -744,6 +744,15 @@
       <div class="card-body">
         <div class="row2">
           <div class="field">
+            <label>Profile Picture</label>
+            <div class="upload-box" id="profile-box" onclick="document.getElementById('profile-file').click()">
+              <p>Drop or click to upload</p>
+              <p class="sub">image only &middot; auto-compressed under 2mb</p>
+              <p class="fname" id="profile-fname"></p>
+              <input type="file" id="profile-file" name="profile_picture" accept="image/*" capture="user" onchange="showFile(this,'profile-box','profile-fname')" required />
+            </div>
+          </div>
+          <div class="field">
             <label>Govt ID</label>
             <div class="upload-box" id="pan-box" onclick="document.getElementById('pan-file').click()">
               <p>Drop or click to upload</p>
@@ -752,16 +761,16 @@
               <input type="file" id="pan-file" name="pan_card" accept="image/*,.pdf" onchange="showFile(this,'pan-box','pan-fname')" required />
             </div>
           </div>
-          <div class="field">
-            <label>Govt ID Number <span class="enc">encrypted</span></label>
-            <input type="text" name="pan_number" id="f-pan" placeholder="PAN or Aadhaar number" maxlength="14" style="text-transform:uppercase" required />
-            <p class="hint">PAN (10 chars) or Aadhaar (12 digits) &middot; stored encrypted, AES-256</p>
-          </div>
         </div>
         <div class="field" style="margin-top:1.1rem">
-          <label>Intro Video URL</label>
-          <input type="url" name="video_url" placeholder="YouTube, Loom, Drive, or any public link" required />
-          <p class="hint">any public http(s) link to your 3-minute intro</p>
+          <label>Govt ID Number <span class="enc">encrypted</span></label>
+          <input type="text" name="pan_number" id="f-pan" placeholder="PAN or Aadhaar number" maxlength="14" style="text-transform:uppercase" required />
+          <p class="hint">PAN (10 chars) or Aadhaar (12 digits) &middot; stored encrypted, AES-256</p>
+        </div>
+        <div class="field" style="margin-top:1.1rem">
+          <label>Intro Video URL <span class="enc">optional</span></label>
+          <input type="url" name="video_url" placeholder="YouTube, Loom, Drive, or any public link" />
+          <p class="hint">optional &middot; any public http(s) link to your 3-minute intro</p>
         </div>
       </div>
     </section>
@@ -1276,9 +1285,12 @@ document.getElementById('onboarding-form').addEventListener('submit', async (e) 
   fd.append('languages', get('languages'));
   fd.append('consented', form.elements['consented'].checked ? 'true' : 'false');
   fd.append('consented_terms', form.elements['consented_terms'].checked ? 'true' : 'false');
-  // File
-  const fileInput = document.getElementById('pan-file');
-  if (fileInput.files[0]) fd.append('pan_card', fileInput.files[0]);
+  // Files
+  const panInput = document.getElementById('pan-file');
+  if (panInput.files[0]) fd.append('pan_card', panInput.files[0]);
+  const profileInput = document.getElementById('profile-file');
+  if (profileInput.files[0]) fd.append('profile_picture', profileInput.files[0]);
+  else { setLog('Profile picture is required.', 'err'); return; }
 
   btn.disabled = true;
   const oldLabel = btn.textContent;
