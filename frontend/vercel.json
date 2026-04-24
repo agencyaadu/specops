@@ -8,6 +8,7 @@
     { "source": "/ops/captain",   "destination": "/captain.html" },
     { "source": "/ops/dashboard", "destination": "/dashboard.html" },
     { "source": "/ops/analytics", "destination": "/analytics.html" },
+    { "source": "/ops/validate",  "destination": "/validate.html" },
     { "source": "/onboard",     "destination": "/onboard.html" },
     { "source": "/admin",       "destination": "/admin.html" }
   ],

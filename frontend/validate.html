@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Validate Attendance - SPEC-OPS</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
+<style>
+  *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#000; --surface:#0a0a0a; --border:rgba(255,255,255,0.14); --border-md:rgba(255,255,255,0.28);
+    --text:#f2f2f2; --muted:#9a9a9a; --hint:#5a5a5a; --accent:#fff; --on-accent:#000;
+    --green:#3ecf8e; --green-soft:rgba(62,207,142,0.10);
+    --red:#f87171; --red-soft:rgba(248,113,113,0.08);
+    --amber:#f5a524; --amber-soft:rgba(245,165,36,0.08);
+    --mono:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+  html,body { background:var(--bg); }
+  body { color:var(--text); font-family:var(--mono); font-size:13px; line-height:1.55; min-height:100vh; }
+  .page { max-width:980px; margin:0 auto; padding:2.2rem 1.4rem 5rem; }
+  .topbar { display:flex; justify-content:space-between; align-items:center; padding-bottom:1rem; border-bottom:1px solid var(--border); margin-bottom:1.6rem; flex-wrap:wrap; gap:10px; }
+  .topbar h1 { font-size:12px; font-weight:500; letter-spacing:.18em; text-transform:uppercase; }
+  .topbar .meta { font-size:10px; letter-spacing:.14em; color:var(--hint); text-transform:uppercase; display:flex; gap:12px; align-items:center; }
+  .banner { padding:12px 14px; border:1px solid var(--border); margin-bottom:1rem; font-size:12px; }
+  .banner.ok { border-color:var(--green); color:var(--green); background:var(--green-soft); }
+  .banner.err { border-color:var(--red); color:var(--red); }
+  .banner.warn { border-color:var(--amber); color:var(--amber); background:var(--amber-soft); }
+  .card { border:1px solid var(--border); margin-bottom:1.2rem; }
+  .card-head { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border); font-size:10px; letter-spacing:.18em; text-transform:uppercase; }
+  .card-head .slash { color:var(--muted); }
+  .card-head .tag { color:var(--muted); font-size:10px; }
+  .card-body { padding:0; }
+  .att-row {
+    display:grid; grid-template-columns:72px 1fr auto; gap:14px;
+    padding:14px 16px; border-bottom:1px solid var(--border); align-items:center;
+  }
+  .att-row:last-child { border-bottom:none; }
+  .att-row img { width:72px; height:72px; object-fit:cover; border:1px solid var(--border); cursor:pointer; }
+  .att-row .nophoto {
+    width:72px; height:72px; border:1px dashed var(--border); display:flex; align-items:center; justify-content:center;
+    font-size:9px; color:var(--hint); letter-spacing:.12em; text-transform:uppercase; text-align:center; padding:4px;
+  }
+  .att-row .who strong { font-weight:500; font-size:14px; }
+  .att-row .who .meta { font-size:11px; color:var(--muted); margin-top:4px; }
+  .att-row .who .loc  { font-size:10px; color:var(--hint); letter-spacing:.06em; margin-top:4px; font-family:'JetBrains Mono', ui-monospace, monospace; }
+  .att-row .actions { display:flex; flex-direction:column; gap:6px; align-items:flex-end; }
+  .pill { display:inline-block; font-size:10px; letter-spacing:.14em; text-transform:uppercase; padding:2px 7px; border:1px solid var(--border); }
+  .pill.warn { border-color:var(--amber); color:var(--amber); background:var(--amber-soft); }
+  .pill.off  { border-color:var(--red); color:var(--red); background:var(--red-soft); }
+  .pill.ok   { border-color:var(--green); color:var(--green); background:var(--green-soft); }
+  .btn {
+    border:1px solid var(--border-md); background:transparent; color:var(--text);
+    padding:6px 14px; font-family:var(--mono); font-size:10px; letter-spacing:.14em;
+    text-transform:uppercase; cursor:pointer; transition:background .12s, border-color .12s;
+    text-decoration:none; display:inline-block; white-space:nowrap;
+  }
+  .btn:hover { border-color:var(--accent); background:var(--surface); }
+  .btn.tiny { padding:4px 9px; font-size:9px; }
+  .btn.confirm { border-color:var(--green); color:var(--green); }
+  .btn.confirm:hover { background:var(--green-soft); }
+  .btn.reject { border-color:var(--red); color:var(--red); }
+  .btn.reject:hover { background:var(--red-soft); }
+  .group-hdr { padding:10px 16px; font-size:11px; color:var(--muted); letter-spacing:.14em; text-transform:uppercase; background:var(--surface); border-bottom:1px solid var(--border); }
+  .empty { padding:32px 16px; text-align:center; color:var(--hint); font-size:11px; letter-spacing:.14em; text-transform:uppercase; }
+  .hidden { display:none; }
+
+  /* Reject modal */
+  .modal-bg { position:fixed; inset:0; background:rgba(0,0,0,.65); display:none; align-items:center; justify-content:center; z-index:100; }
+  .modal-bg.open { display:flex; }
+  .modal { width:min(480px,94%); background:var(--bg); border:1px solid var(--border); padding:20px; }
+  .modal h2 { font-size:13px; font-weight:500; letter-spacing:.08em; margin-bottom:10px; }
+  .modal .sub { font-size:11px; color:var(--muted); margin-bottom:14px; }
+  .modal textarea {
+    width:100%; background:transparent; border:1px solid var(--border); color:var(--text);
+    font-family:var(--mono); font-size:13px; padding:10px; min-height:90px; resize:vertical;
+  }
+  .modal .actions { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; }
+</style>
+<link rel="stylesheet" href="/assets/theme.css" />
+<script src="/assets/theme.js"></script>
+</head>
+<body>
+
+<div class="page">
+  <div class="topbar">
+    <h1>// Validate Attendance</h1>
+    <div class="meta">
+      <a class="btn tiny" id="back-link" href="/dashboard.html">← Back</a>
+      <span id="who">-</span>
+      <button class="btn tiny" id="signout">Sign out</button>
+    </div>
+  </div>
+
+  <div id="status-banner" class="hidden"></div>
+
+  <div id="app" class="hidden">
+    <div id="groups-host"></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="reject-modal">
+  <div class="modal">
+    <h2>Reject attendance</h2>
+    <div class="sub" id="reject-who">-</div>
+    <textarea id="reject-reason" placeholder="Why are you rejecting this? (required)" maxlength="500"></textarea>
+    <div class="actions">
+      <button class="btn" id="reject-cancel">Cancel</button>
+      <button class="btn reject" id="reject-confirm">Reject</button>
+    </div>
+  </div>
+</div>
+
+<script src="/config.js"></script>
+<script>
+(function () {
+  const API     = window.BACKEND_URL;
+  const TOKEN_K = "spec_token";
+  const whoEl   = document.getElementById("who");
+  const banner  = document.getElementById("status-banner");
+  const appEl   = document.getElementById("app");
+  const host    = document.getElementById("groups-host");
+  let currentRejectId = null;
+
+  (function captureToken() {
+    const p = new URLSearchParams(location.search);
+    const t = p.get("token");
+    if (t) {
+      localStorage.setItem(TOKEN_K, t);
+      p.delete("token");
+      const qs = p.toString();
+      history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
+    }
+  })();
+
+  function token() { return localStorage.getItem(TOKEN_K) || ""; }
+  function authHdr() { return { Authorization: "Bearer " + token() }; }
+  function redirectToLogin() {
+    location.href = API + "/auth/google?next=" + encodeURIComponent(location.pathname);
+  }
+  function showBanner(cls, msg) {
+    banner.className = "banner " + cls;
+    banner.textContent = msg;
+    banner.classList.remove("hidden");
+  }
+  function hideBanner() { banner.className = "banner hidden"; banner.textContent = ""; }
+
+  document.getElementById("signout").onclick = () => {
+    localStorage.removeItem(TOKEN_K);
+    location.reload();
+  };
+
+  async function bootstrap() {
+    if (!token()) return redirectToLogin();
+    let res;
+    try { res = await fetch(API + "/auth/verify?token=" + encodeURIComponent(token())); }
+    catch (e) { return showBanner("err", "Network error: " + e.message); }
+    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
+    if (!res.ok) return showBanner("err", "Auth check failed: " + res.status);
+    const { user } = await res.json();
+    if (user.role === "owner") user.role = "freddy";
+    if (!["captain","chief","general","freddy"].includes(user.role)) {
+      return showBanner("err", `Signed in as ${user.email} (role: ${user.role || "none"}). Validation is for captains, chiefs, and admins.`);
+    }
+    // Send captains back to captain.html, everyone else back to dashboard.
+    document.getElementById("back-link").href = user.role === "captain" ? "/captain.html" : "/dashboard.html";
+    whoEl.textContent = `${user.email} · ${user.role}`;
+    appEl.classList.remove("hidden");
+    await loadPending();
+  }
+
+  async function loadPending() {
+    host.innerHTML = `<div class="empty">loading…</div>`;
+    const res = await fetch(API + "/api/validation/pending", { headers: authHdr() });
+    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      host.innerHTML = `<div class="banner err">Failed to load: ${j.detail || res.status}</div>`;
+      return;
+    }
+    const { rows } = await res.json();
+    if (!rows || rows.length === 0) {
+      host.innerHTML = `<div class="empty">Nothing waiting. You're all caught up.</div>`;
+      return;
+    }
+    renderGroups(rows);
+  }
+
+  function renderGroups(rows) {
+    // Group by (op_id, report_date) so the validator sees one shift at a time.
+    const groups = new Map();
+    for (const r of rows) {
+      const k = r.op_id + "|" + r.report_date;
+      if (!groups.has(k)) groups.set(k, { op_id: r.op_id, report_date: r.report_date, factory_name: r.factory_name, shift: r.shift, rows: [] });
+      groups.get(k).rows.push(r);
+    }
+
+    host.innerHTML = "";
+    for (const g of groups.values()) {
+      const card = document.createElement("section");
+      card.className = "card";
+      card.innerHTML = `
+        <div class="card-head">
+          <span><span class="slash">//</span>&nbsp; ${esc(g.factory_name)} · ${esc(g.shift)}</span>
+          <span class="tag">${esc(g.report_date)}</span>
+        </div>
+        <div class="card-body">
+          ${g.rows.map(rowHtml).join("")}
+        </div>
+      `;
+      host.appendChild(card);
+    }
+
+    // Wire buttons after mounting.
+    host.querySelectorAll(".js-confirm").forEach(b => b.onclick = () => onConfirm(parseInt(b.dataset.id, 10), b));
+    host.querySelectorAll(".js-reject").forEach(b => b.onclick  = () => openReject(parseInt(b.dataset.id, 10), b.dataset.who));
+  }
+
+  function rowHtml(r) {
+    const photo = r.photo_url
+      ? `<a href="${esc(r.photo_url)}" target="_blank" rel="noopener"><img src="${esc(r.photo_url)}" alt="photo" /></a>`
+      : `<div class="nophoto">no photo</div>`;
+    const dist = r.distance_m != null ? `${Math.round(Number(r.distance_m))}m` : "";
+    // verified=false (>200m) is worth calling out so the validator double-checks.
+    const verify = r.verified === false
+      ? `<span class="pill off">photo ${dist} mismatch</span>`
+      : (dist ? `<span class="pill mute">photo ${dist}</span>` : "");
+    const submitter = r.submitted_by_email ? `submitted by ${esc(r.submitted_by_email)}` : "";
+    const safeWho = `${r.full_name} (${r.person_role})`;
+    return `
+      <div class="att-row">
+        ${photo}
+        <div class="who">
+          <strong>${esc(r.full_name)}</strong> · <span class="pill">${esc(r.person_role)}</span>
+          <div class="meta">phone ${esc(r.phone)} · ${submitter}</div>
+          <div class="loc">dev ${fmtCoord(r.browser_lat)}, ${fmtCoord(r.browser_lng)}${verify ? " · " : ""}${verify}</div>
+        </div>
+        <div class="actions">
+          <button class="btn confirm tiny js-confirm" data-id="${r.id}">Confirm</button>
+          <button class="btn reject tiny js-reject" data-id="${r.id}" data-who="${esc(safeWho)}">Reject</button>
+        </div>
+      </div>
+    `;
+  }
+
+  async function onConfirm(id, btn) {
+    btn.disabled = true;
+    const orig = btn.textContent;
+    btn.textContent = "…";
+    const res = await fetch(API + "/api/validation/" + id + "/confirm", {
+      method: "POST", headers: authHdr(),
+    });
+    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      alert("Confirm failed: " + (j.detail || res.status));
+      btn.disabled = false;
+      btn.textContent = orig;
+      return;
+    }
+    // Remove the row on success; if the card becomes empty, drop the card.
+    removeRow(btn);
+    hideBanner();
+  }
+
+  function openReject(id, who) {
+    currentRejectId = id;
+    document.getElementById("reject-who").textContent = who || "";
+    document.getElementById("reject-reason").value = "";
+    document.getElementById("reject-modal").classList.add("open");
+    setTimeout(() => document.getElementById("reject-reason").focus(), 50);
+  }
+  document.getElementById("reject-cancel").onclick = () => {
+    document.getElementById("reject-modal").classList.remove("open");
+    currentRejectId = null;
+  };
+  document.getElementById("reject-confirm").onclick = async function () {
+    const reason = document.getElementById("reject-reason").value.trim();
+    if (!reason) { alert("Reason is required."); return; }
+    if (currentRejectId == null) return;
+    this.disabled = true;
+    const orig = this.textContent; this.textContent = "…";
+    try {
+      const res = await fetch(API + "/api/validation/" + currentRejectId + "/reject", {
+        method: "POST",
+        headers: { ...authHdr(), "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+      if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        alert("Reject failed: " + (j.detail || res.status));
+        return;
+      }
+      // Find and remove the row whose reject button owns this id.
+      const btn = host.querySelector(`.js-reject[data-id="${currentRejectId}"]`);
+      if (btn) removeRow(btn);
+      document.getElementById("reject-modal").classList.remove("open");
+      currentRejectId = null;
+    } finally {
+      this.disabled = false; this.textContent = orig;
+    }
+  };
+
+  function removeRow(btn) {
+    const row = btn.closest(".att-row");
+    const card = btn.closest(".card");
+    if (row) row.remove();
+    if (card && card.querySelectorAll(".att-row").length === 0) card.remove();
+    if (host.querySelectorAll(".att-row").length === 0) {
+      host.innerHTML = `<div class="empty">Nothing waiting. You're all caught up.</div>`;
+    }
+  }
+
+  function fmtCoord(n) {
+    if (n === null || n === undefined) return "-";
+    const f = Number(n);
+    return Number.isFinite(f) ? f.toFixed(5) : "-";
+  }
+  function esc(s) {
+    if (s === null || s === undefined) return "";
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  bootstrap();
+})();
+</script>
+</body>
+</html>

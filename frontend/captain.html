@@ -85,6 +85,17 @@
   <div id="reminder-banner" class="hidden"></div>
 
   <div id="app" class="hidden">
+    <!-- Visible only when the captain/chief has pending attendance to review. -->
+    <section class="card hidden" id="pending-card">
+      <div class="card-head">
+        <span><span class="slash">//</span>&nbsp; Attendance Awaiting Your Review</span>
+        <span id="pending-count" class="pill warn">0</span>
+      </div>
+      <div class="card-body">
+        <a class="btn" href="/validate.html">Review pending attendance →</a>
+      </div>
+    </section>
+
     <section class="card">
       <div class="card-head">
         <span><span class="slash">//</span>&nbsp; Your Operations</span>
@@ -187,6 +198,19 @@
     }
     appEl.classList.remove("hidden");
     await loadOps();
+    loadPendingCount();
+  }
+
+  async function loadPendingCount() {
+    try {
+      const res = await fetch(API + "/api/validation/counts", { headers: authHdr() });
+      if (!res.ok) return;
+      const { pending } = await res.json();
+      if (pending > 0) {
+        document.getElementById("pending-count").textContent = pending;
+        document.getElementById("pending-card").classList.remove("hidden");
+      }
+    } catch (_) {}
   }
 
   async function loadOps() {

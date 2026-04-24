@@ -10,7 +10,7 @@ from crypto import encrypt, hash_pan
 from exif import extract_gps
 from geo import haversine_m
 from storage import upload_attendance_photo
-from routers.reports import today_ist
+from routers.reports import today_ist, parse_report_date
 
 router = APIRouter()
 
@@ -46,6 +46,24 @@ _DAILY_TIME_FIELDS = ["actual_reporting_time", "time_leaving"]
 
 def _ext_for_mime(mime: str) -> str:
     return {"image/jpeg": ".jpg", "image/heic": ".heic", "image/heif": ".heif"}.get(mime, ".bin")
+
+def _pick_validator_role(
+    submitter_email: str,
+    captains: set,
+    chiefs: set,
+) -> Optional[str]:
+    """Decide which role validates a given submission.
+
+    Rule: captains validate first, chiefs next. A validator can't validate their own
+    submission, so if the submitter is the only person in a tier we fall through to
+    the next tier (or auto-confirm)."""
+    other_captains = captains - {submitter_email}
+    if other_captains:
+        return "captain"
+    other_chiefs = chiefs - {submitter_email}
+    if other_chiefs:
+        return "chief"
+    return None
 
 def _validate_time_str(v: Optional[str]) -> Optional[time]:
     if v is None or v == "":
@@ -154,7 +172,11 @@ async def submit_daily(
         prepared.append(entry)
 
     db = request.app.state.db
-    report_date = today_ist()
+    # report_date can be supplied explicitly (for backdated or amendment submissions);
+    # parse_report_date enforces the "not future, not older than MAX_BACKDATE_DAYS" window.
+    report_date = parse_report_date(body.get("report_date"))
+    submitter_email = (claims.get("email") or "").lower()
+    submitter_role = claims.get("role")
 
     async with db.acquire() as conn:
         async with conn.transaction():
@@ -166,6 +188,17 @@ async def submit_daily(
                 raise HTTPException(404, "operation not found")
             if not op_row["is_active"]:
                 raise HTTPException(410, "operation is not active")
+
+            # Work out who validates attendance for this op. Prefer captains;
+            # fall back to chiefs; auto-confirm if neither exists (or the
+            # submitter is the only person who could validate themselves).
+            assignee_rows = await conn.fetch(
+                "SELECT email, role FROM op_assignments WHERE op_id = $1",
+                op_id,
+            )
+            captains = {r["email"].lower() for r in assignee_rows if r["role"] == "captain"}
+            chiefs   = {r["email"].lower() for r in assignee_rows if r["role"] == "chief"}
+            validator_role = _pick_validator_role(submitter_email, captains, chiefs)
 
             daily_vals = {}
             for k in _DAILY_INT_FIELDS:
@@ -240,6 +273,17 @@ async def submit_daily(
                     report_id, ts, note,
                 )
 
+            # Re-submit semantics: wipe existing attendance for this op/date so the
+            # new list is authoritative. Confirmed/rejected history for that day is
+            # dropped - if that matters later, we can switch to soft-delete.
+            await conn.execute(
+                "DELETE FROM attendance WHERE op_id = $1 AND report_date = $2",
+                op_id, report_date,
+            )
+
+            status = "pending" if validator_role else "confirmed"
+            confirmed_at = datetime.utcnow() if status == "confirmed" else None
+            confirmed_by = submitter_email if status == "confirmed" else None
             for p in prepared:
                 pan_h = hash_pan(p["pan"])
                 key = None
@@ -256,7 +300,10 @@ async def submit_daily(
                             photo_key,
                             photo_exif_lat, photo_exif_lng,
                             browser_lat, browser_lng, browser_accuracy_m,
-                            distance_m, verified
+                            distance_m, verified,
+                            submitted_by_email,
+                            status, validator_role,
+                            confirmed_by_email, confirmed_at
                         ) VALUES (
                             $1, $2,
                             $3, $4, $5,
@@ -264,7 +311,10 @@ async def submit_daily(
                             $8,
                             $9, $10,
                             $11, $12, $13,
-                            $14, $15
+                            $14, $15,
+                            $16,
+                            $17, $18,
+                            $19, $20
                         )
                         """,
                         op_id, report_date,
@@ -274,8 +324,18 @@ async def submit_daily(
                         p["exif_lat"], p["exif_lng"],
                         p["b_lat"], p["b_lng"], p["b_acc"],
                         p["distance_m"], p["verified"],
+                        submitter_email,
+                        status, validator_role,
+                        confirmed_by, confirmed_at,
                     )
                 except Exception as e:
                     raise HTTPException(409, f"attendance insert failed ({p['name']}): {e}")
 
-    return {"ok": True, "report_id": report_id, "attendance_count": len(prepared)}
+    return {
+        "ok": True,
+        "report_id": report_id,
+        "report_date": report_date.isoformat(),
+        "attendance_count": len(prepared),
+        "attendance_status": "pending" if validator_role else "confirmed",
+        "validator_role": validator_role,
+    }

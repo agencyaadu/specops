@@ -623,31 +623,14 @@
   </div>
 
   <form id="onboarding-form" enctype="multipart/form-data">
-    <input type="hidden" id="google_id" name="google_id" />
-
-    <!-- AUTH card -->
-    <section class="card">
-      <div class="card-head"><span><span class="slash">//</span>&nbsp; Sign&nbsp;in</span><span class="tag">Auth</span></div>
-      <div class="card-body">
-        <button type="button" class="google-btn" id="google-btn" onclick="googleLogin()">
-          <svg width="14" height="14" viewBox="0 0 24 24">
-            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-          </svg>
-          <span id="google-label">Continue with Google</span>
-        </button>
-        <div class="divider-or">or fill manually</div>
-      </div>
-    </section>
+    <input type="hidden" id="google_id" name="google_id" value="" />
 
     <!-- IDENTITY -->
     <section class="card">
       <div class="card-head"><span><span class="slash">//</span>&nbsp; Identity</span><span class="tag">01</span></div>
       <div class="card-body">
         <div class="field">
-          <label>Your Name <span class="auto" id="name-tag" style="display:none">via google</span></label>
+          <label>Your Name</label>
           <input type="text" name="full_name" id="f-name" placeholder="Full name" required />
         </div>
         <div class="row2">
@@ -656,7 +639,7 @@
             <input type="tel" name="whatsapp" placeholder="+91 XXXXX XXXXX" required />
           </div>
           <div class="field">
-            <label>Email <span class="auto" id="email-tag" style="display:none">via google</span></label>
+            <label>Email</label>
             <input type="email" name="email" id="f-email" placeholder="you@domain.com" required />
           </div>
         </div>
@@ -885,39 +868,10 @@ function toggleTheme() {
 }
 applyThemeLabel();
 
-/* --- google oauth --- */
-function googleLogin() {
-  // Tell the OAuth callback to bounce us back to this page (keeps the token
-  // in the URL so checkToken() can prefill fields). Without this the callback
-  // defaults to FRONTEND_URL and users land on the welcome page instead.
-  const next = encodeURIComponent(window.location.pathname);
-  window.location.href = API + '/auth/google?next=' + next;
-}
-
-async function checkToken() {
-  const params = new URLSearchParams(window.location.search);
-  const token  = params.get('token');
-  if (!token) return;
-  try {
-    const res  = await fetch(API + '/auth/verify?token=' + token);
-    const data = await res.json();
-    if (data.valid) {
-      const u = data.user;
-      document.getElementById('f-name').value  = u.name  || '';
-      document.getElementById('f-email').value = u.email || '';
-      document.getElementById('google_id').value = u.sub || '';
-      document.getElementById('f-name').classList.add('prefilled');
-      document.getElementById('f-email').classList.add('prefilled');
-      document.getElementById('name-tag').style.display  = 'inline-block';
-      document.getElementById('email-tag').style.display = 'inline-block';
-      const btn = document.getElementById('google-btn');
-      btn.classList.add('signed');
-      document.getElementById('google-label').textContent = 'Signed in as ' + u.email;
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-  } catch(e) {}
-}
-checkToken();
+/* Google sign-in is intentionally NOT offered on the onboarding form.
+ * Our Google OAuth project is in testing mode with a 100-user cap and
+ * we don't want to burn slots on people who don't have a role yet.
+ * Sign-in lives at /ops for already-onboarded role-holders. */
 
 /* --- language chips --- */
 document.getElementById('lang-grid').addEventListener('change', (e) => {
@@ -940,7 +894,7 @@ document.getElementById('lang-grid').addEventListener('change', (e) => {
 function isSectionCard(card) {
   // Only data-bearing form sections are collapsible. Skip the Submit/Log
   // panels at the bottom — those are action surfaces, not data.
-  if (!card.querySelector('input, select, textarea, button.google-btn')) return false;
+  if (!card.querySelector('input, select, textarea')) return false;
   if (card.querySelector('#submit-btn, #toast'))                          return false;
   return true;
 }
