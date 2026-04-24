@@ -1,4 +1,4 @@
-# Deploying SpecOps
+# Deploying SPEC-OPS
 
 Two services to stand up, plus a few one-time wiring steps.
 

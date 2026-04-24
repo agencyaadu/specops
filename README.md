@@ -1,4 +1,4 @@
-# SpecOps Onboarding
+# SPEC-OPS Onboarding
 
 A minimal onboarding form. **Supabase** stores everything — Postgres for data, Storage for files.
 
