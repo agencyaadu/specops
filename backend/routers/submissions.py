@@ -77,7 +77,6 @@ async def submit(
     full_name:        str  = Form(...) ,
     whatsapp:         str  = Form(...) ,
     email:            str  = Form(...) ,
-    alt_email:        str  = Form("") ,
     google_id:        str  = Form("") ,
 
     telegram_id:      str  = Form(...) ,
@@ -122,7 +121,6 @@ async def submit(
     full_name        = (full_name or "").strip()
     whatsapp         = _normalize_phone(whatsapp)
     email            = (email or "").strip().lower()
-    alt_email        = (alt_email or "").strip().lower()
     telegram_id      = (telegram_id or "").strip()
     discord_id       = (discord_id or "").strip()
     twitter_id       = (twitter_id or "").strip()
@@ -170,7 +168,7 @@ async def submit(
 
     row_id = await db.fetchval("""
         INSERT INTO submissions (
-            full_name, whatsapp, email, alt_email, google_id,
+            full_name, whatsapp, email, google_id,
             telegram_id, discord_id, twitter_id, referred_by,
             languages, hardest_problem, health_notes,
             address_line1, address_line2, pincode, city, state,
@@ -180,18 +178,18 @@ async def submit(
             pan_card_url, intro_video_url,
             consented, consented_terms
         ) VALUES (
-            $1,$2,$3,$4,$5,
-            $6,$7,$8,$9,
-            $10,$11,$12,
-            $13,$14,$15,$16,$17,
-            $18,$19,$20,
-            $21,$22,$23,
-            $24,
-            $25,$26,
-            $27,$28
+            $1,$2,$3,$4,
+            $5,$6,$7,$8,
+            $9,$10,$11,
+            $12,$13,$14,$15,$16,
+            $17,$18,$19,
+            $20,$21,$22,
+            $23,
+            $24,$25,
+            $26,$27
         ) RETURNING id
     """,
-        full_name, whatsapp, email, alt_email, google_id,
+        full_name, whatsapp, email, google_id,
         telegram_id, discord_id, twitter_id, referred_by,
         lang_list,
         hardest_problem, health_notes,
@@ -208,7 +206,7 @@ async def submit(
             "id": row_id,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "full_name": full_name, "whatsapp": whatsapp, "email": email,
-            "alt_email": alt_email, "google_id": google_id,
+            "google_id": google_id,
             "telegram_id": telegram_id, "discord_id": discord_id,
             "twitter_id": twitter_id, "referred_by": referred_by,
             "languages": lang_list, "hardest_problem": hardest_problem,
