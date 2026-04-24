@@ -2,8 +2,12 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "trailingSlash": false,
   "redirects": [
+<<<<<<< HEAD
     { "source": "/r/:op_id",  "destination": "/report/:op_id", "permanent": true },
     { "source": "/ops/chief", "destination": "/ops/general",   "permanent": true }
+=======
+    { "source": "/r/:op_id", "destination": "/report/:op_id", "permanent": true }
+>>>>>>> origin/main
   ],
   "rewrites": [
     { "source": "/api/:path*",    "destination": "https://backend-production-3d2d.up.railway.app/api/:path*" },
