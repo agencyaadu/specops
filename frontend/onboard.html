@@ -909,9 +909,15 @@ function isSectionCard(card) {
   return true;
 }
 function isCardComplete(card) {
-  // A section counts as complete when every [required] field has a value
-  // AND any custom rule (langs picked) holds. Auth section has no required
-  // inputs so we treat sign-in (or skip) as the trigger separately.
+  // The Languages card has no [required] inputs (it stores selections in a
+  // hidden field), so the lang-grid check has to run BEFORE we bail out on
+  // an empty required list. Otherwise the section could never be marked
+  // complete even with languages picked.
+  const isLangCard = !!card.querySelector('#lang-grid');
+  if (isLangCard) {
+    return document.querySelectorAll('#lang-grid input:checked').length > 0;
+  }
+  // Other sections must have all [required] fields filled.
   const required = card.querySelectorAll('[required]');
   if (!required.length) return false;
   for (const r of required) {
@@ -919,10 +925,34 @@ function isCardComplete(card) {
     if (r.type === 'file')     { if (!r.files || !r.files.length) return false; continue; }
     if (!r.value || !String(r.value).trim()) return false;
   }
-  if (card.querySelector('#lang-grid')) {
-    if (!document.querySelectorAll('#lang-grid input:checked').length) return false;
-  }
   return true;
+}
+
+/* Returns a list of human-readable reasons the form isn't ready to submit.
+ * Used by the submit handler so chiefs see the exact missing field instead
+ * of a generic 'Pick at least one language' alert. */
+function missingFieldReasons() {
+  const out = [];
+  const cards = [...document.querySelectorAll('form .card')].filter(isSectionCard);
+  for (const card of cards) {
+    const isLangCard = !!card.querySelector('#lang-grid');
+    if (isLangCard) {
+      if (!document.querySelectorAll('#lang-grid input:checked').length) {
+        out.push('Languages: pick at least one');
+      }
+      continue;
+    }
+    const headLabel = (card.querySelector('.card-head span:first-child')?.textContent || '').replace(/^\W+/, '').trim();
+    for (const r of card.querySelectorAll('[required]')) {
+      const labelEl = r.closest('.field')?.querySelector('label');
+      const fieldName = (labelEl?.textContent || r.name || r.id || 'field').split(/\s{2,}|\n/)[0].trim();
+      if (r.type === 'checkbox' && !r.checked)            out.push(`${headLabel}: ${fieldName}`);
+      else if (r.type === 'file'  && (!r.files || !r.files.length)) out.push(`${headLabel}: ${fieldName}`);
+      else if (r.type !== 'checkbox' && r.type !== 'file' && !String(r.value || '').trim())
+        out.push(`${headLabel}: ${fieldName}`);
+    }
+  }
+  return out;
 }
 function recheckCard(card) {
   if (!card || !isSectionCard(card)) return;
@@ -1246,13 +1276,20 @@ document.getElementById('onboarding-form').addEventListener('submit', async (e) 
   const btn = document.getElementById('submit-btn');
   setLog('Validating...', '');
 
-  if (!document.getElementById('languages-hidden').value) {
-    setLog('Pick at least one language.', 'err');
-    document.querySelector('.lang-chip').scrollIntoView({block: 'center'});
-    return;
-  }
-  if (!document.getElementById('consent').checked || !document.getElementById('consent-terms').checked) {
-    setLog('Both consent boxes are required.', 'err');
+  // Surface every missing required field, not just the first language gate.
+  // Chiefs hit "submission issues" without a clear hint of what was wrong,
+  // so we list them all and scroll to the first one.
+  const missing = missingFieldReasons();
+  if (!document.getElementById('consent').checked)        missing.push('Consent: KYC consent box');
+  if (!document.getElementById('consent-terms').checked)  missing.push('Consent: Terms & Conditions');
+  if (missing.length) {
+    setLog('Missing: ' + missing.slice(0, 6).join(' · ') + (missing.length > 6 ? ` (+${missing.length - 6} more)` : ''), 'err');
+    // Jump to the first incomplete section so the user can see it.
+    const firstCard = [...document.querySelectorAll('form .card')].find(c => isSectionCard(c) && !isCardComplete(c));
+    if (firstCard) {
+      firstCard.classList.remove('collapsed');
+      firstCard.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
     return;
   }
 
