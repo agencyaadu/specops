@@ -384,10 +384,9 @@
     if (!token()) return redirectToLogin();
     let res;
     try {
-      // for_reporting=1: the reporting dropdown lists every active op, not just
-      // the ones this chief is assigned to. Editing/assignment endpoints still
-      // enforce assignment on the backend.
-      res = await fetch(API + "/api/ops?for_reporting=1", {
+      // Chiefs/captains see only ops they're assigned to. Admins see all.
+      // Backend enforces the same gate on /api/op/{op_id} + submits.
+      res = await fetch(API + "/api/ops", {
         headers: { Authorization: "Bearer " + token() },
       });
     } catch (e) { return showBanner("err", "Network error: " + e.message); }
