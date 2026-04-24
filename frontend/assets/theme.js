@@ -44,9 +44,29 @@
     document.body.appendChild(btn);
   }
 
+  // Floating home button: one-tap back to the welcome page from any
+  // sub-route. Skipped on the home page itself.
+  function addHomeButton() {
+    var path = (window.location.pathname || "/").replace(/\/+$/, "") || "/";
+    if (path === "/" || path === "/index" || path === "/index.html") return;
+    if (document.querySelector(".home-fab")) return;
+    var a = document.createElement("a");
+    a.href = "/";
+    a.className = "home-fab";
+    a.setAttribute("aria-label", "Home");
+    a.setAttribute("title", "Home");
+    a.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>' +
+      '<polyline points="9 22 9 12 15 12 15 22"/></svg>';
+    document.body.appendChild(a);
+  }
+
+  function init() { addButton(); addHomeButton(); }
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", addButton);
+    document.addEventListener("DOMContentLoaded", init);
   } else {
-    addButton();
+    init();
   }
 })();

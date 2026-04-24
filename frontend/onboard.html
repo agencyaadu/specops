@@ -108,7 +108,9 @@
   .card {
     border: 1px solid var(--border);
     margin-bottom: 1.2rem;
+    transition: border-color .2s, background .2s;
   }
+  .card.complete { border-color: rgba(62,207,142,0.35); }
   .card-head {
     display: flex;
     align-items: center;
@@ -118,10 +120,74 @@
     font-size: 11px;
     letter-spacing: .18em;
     text-transform: uppercase;
+    cursor: pointer;
+    user-select: none;
+    transition: background .15s;
   }
+  .collapsible .card-head:hover { background: rgba(255,255,255,0.03); }
+  html[data-theme="light"] .collapsible .card-head:hover { background: rgba(0,0,0,0.025); }
+  .card.collapsed .card-head { border-bottom-color: transparent; }
   .card-head .slash { color: var(--muted); }
   .card-head .tag   { color: var(--muted); }
-  .card-body { padding: 22px 18px; }
+  .card-head .head-actions {
+    display: inline-flex; align-items: center; gap: 12px;
+  }
+  .card-head .check {
+    display: none; align-items: center; justify-content: center;
+    width: 16px; height: 16px; color: var(--green);
+  }
+  .card.complete .card-head .check { display: inline-flex; }
+  .card-head .chevron {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; color: var(--muted);
+    transition: transform .2s, color .15s;
+  }
+  .card.collapsed .card-head .chevron { transform: rotate(-90deg); }
+  .card.complete .card-head .chevron { color: var(--green); }
+  .card-body {
+    padding: 22px 18px;
+    overflow: hidden;
+    transition: max-height .25s ease, padding .25s ease, opacity .2s ease;
+    max-height: 8000px;
+  }
+  .card.collapsed .card-body {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+  }
+
+  /* Sticky progress strip */
+  .progress-strip {
+    position: sticky; top: 0; z-index: 50;
+    background: var(--bg); padding: 8px 0 12px;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .progress-strip .row {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  .progress-strip strong { color: var(--text); font-weight: 500; }
+  .progress-track {
+    margin-top: 6px; height: 3px; background: rgba(255,255,255,0.07);
+    border-radius: 2px; overflow: hidden;
+  }
+  html[data-theme="light"] .progress-track { background: rgba(0,0,0,0.08); }
+  .progress-fill {
+    height: 100%; width: 0%;
+    background: var(--green);
+    transition: width .3s ease;
+  }
+  .progress-strip .actions { display: flex; gap: 6px; }
+  .progress-strip .mini {
+    background: transparent; border: 1px solid var(--border-md);
+    color: var(--muted); font-family: var(--mono); font-size: 9px;
+    letter-spacing: .14em; text-transform: uppercase;
+    padding: 5px 9px; cursor: pointer; transition: color .12s, border-color .12s;
+  }
+  .progress-strip .mini:hover { color: var(--text); border-color: var(--accent); }
 
   /* sub-label inside a card (used when one card holds multiple logical groups) */
   .sub-label {
@@ -545,6 +611,17 @@
     </div>
   </div>
 
+  <div class="progress-strip" id="progress-strip">
+    <div class="row">
+      <span><strong id="progress-count">0 / 7</strong>&nbsp; sections complete</span>
+      <span class="actions">
+        <button type="button" class="mini" id="expand-all">Expand all</button>
+        <button type="button" class="mini" id="collapse-all">Collapse done</button>
+      </span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+
   <form id="onboarding-form" enctype="multipart/form-data">
     <input type="hidden" id="google_id" name="google_id" />
 
@@ -581,20 +658,6 @@
           <div class="field">
             <label>Email <span class="auto" id="email-tag" style="display:none">via google</span></label>
             <input type="email" name="email" id="f-email" placeholder="you@domain.com" required />
-          </div>
-        </div>
-        <div class="row2">
-          <div class="field">
-            <label>Alt Email <span class="opt">optional</span></label>
-            <input type="email" name="alt_email" />
-          </div>
-          <div class="field">
-            <label>Occupation</label>
-            <select name="occupation" required>
-              <option value="">select</option>
-              <option>@ Organization</option>
-              <option>Independent</option>
-            </select>
           </div>
         </div>
       </div>
@@ -725,11 +788,11 @@
       <div class="card-head"><span><span class="slash">//</span>&nbsp; Consent</span><span class="tag">08</span></div>
       <div class="card-body">
         <div class="consent-row">
-          <input type="checkbox" name="consented" id="consent" value="true" />
+          <input type="checkbox" name="consented" id="consent" value="true" required />
           <p>I consent to my Govt ID and financial details being collected and stored in encrypted form for KYC and payment processing purposes.</p>
         </div>
         <div class="consent-row">
-          <input type="checkbox" name="consented_terms" id="consent-terms" value="true" />
+          <input type="checkbox" name="consented_terms" id="consent-terms" value="true" required />
           <p>I have read and agree to the <a href="#" onclick="openTerms(event)">Terms &amp; Conditions</a>. You can read the full document before accepting.</p>
         </div>
       </div>
@@ -862,7 +925,119 @@ document.getElementById('lang-grid').addEventListener('change', (e) => {
   if (chip) chip.classList.toggle('active', e.target.checked);
   const checked = [...document.querySelectorAll('#lang-grid input:checked')].map(c => c.value);
   document.getElementById('languages-hidden').value = checked.join(',');
+  // Languages section completion piggybacks on the hidden input so the
+  // collapsible logic sees it as "filled".
+  recheckCard(document.getElementById('lang-grid').closest('.card'));
 });
+
+/* --- collapsible sections + progress tracker --------------------------- *
+ * Every form card with required inputs gets a chevron + check in its head.
+ * Click the head to manually toggle. When all required fields are filled
+ * we mark the section .complete (green check) and auto-collapse it ONCE
+ * (transition incomplete -> complete). User can re-expand any time and we
+ * won't auto-collapse it again.
+ */
+function isSectionCard(card) {
+  // Only data-bearing form sections are collapsible. Skip the Submit/Log
+  // panels at the bottom — those are action surfaces, not data.
+  if (!card.querySelector('input, select, textarea, button.google-btn')) return false;
+  if (card.querySelector('#submit-btn, #toast'))                          return false;
+  return true;
+}
+function isCardComplete(card) {
+  // A section counts as complete when every [required] field has a value
+  // AND any custom rule (langs picked) holds. Auth section has no required
+  // inputs so we treat sign-in (or skip) as the trigger separately.
+  const required = card.querySelectorAll('[required]');
+  if (!required.length) return false;
+  for (const r of required) {
+    if (r.type === 'checkbox') { if (!r.checked) return false; continue; }
+    if (r.type === 'file')     { if (!r.files || !r.files.length) return false; continue; }
+    if (!r.value || !String(r.value).trim()) return false;
+  }
+  if (card.querySelector('#lang-grid')) {
+    if (!document.querySelectorAll('#lang-grid input:checked').length) return false;
+  }
+  return true;
+}
+function recheckCard(card) {
+  if (!card || !isSectionCard(card)) return;
+  const wasComplete = card.classList.contains('complete');
+  const nowComplete = isCardComplete(card);
+  card.classList.toggle('complete', nowComplete);
+  if (nowComplete && !wasComplete && !card.dataset.userExpanded) {
+    card.classList.add('collapsed');
+  }
+  updateProgress();
+}
+function updateProgress() {
+  const cards = [...document.querySelectorAll('form .card')].filter(c => c.querySelectorAll('[required]').length || c.querySelector('#lang-grid'));
+  let total = 0, done = 0;
+  cards.forEach(c => { if (isSectionCard(c)) { total++; if (c.classList.contains('complete')) done++; } });
+  document.getElementById('progress-count').textContent = done + ' / ' + total;
+  const pct = total ? (done / total) * 100 : 0;
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+function setupCollapsibles() {
+  const cards = document.querySelectorAll('form .card');
+  cards.forEach(card => {
+    if (!isSectionCard(card)) return;
+    card.classList.add('collapsible');
+
+    // Build head-actions (move the existing .tag into it; add check + chevron).
+    const head = card.querySelector('.card-head');
+    if (head && !head.querySelector('.head-actions')) {
+      const tag = head.querySelector('.tag');
+      const wrap = document.createElement('span');
+      wrap.className = 'head-actions';
+      wrap.innerHTML =
+        '<span class="check" aria-label="complete">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M20 6L9 17l-5-5"/></svg>' +
+        '</span>' +
+        (tag ? '' : '') +
+        '<span class="chevron" aria-hidden="true">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>' +
+        '</span>';
+      // re-position .tag inside head-actions, between check and chevron
+      if (tag) {
+        wrap.insertBefore(tag, wrap.lastElementChild);
+      }
+      head.appendChild(wrap);
+    }
+
+    // Toggle on click of head (but not on inputs or buttons inside it).
+    head.addEventListener('click', (e) => {
+      if (e.target.closest('input, select, textarea, button, a')) return;
+      if (card.classList.contains('collapsed')) {
+        card.classList.remove('collapsed');
+        card.dataset.userExpanded = '1';
+      } else {
+        card.classList.add('collapsed');
+      }
+    });
+
+    // Recompute completion whenever any field inside the card changes.
+    card.addEventListener('input',  () => recheckCard(card));
+    card.addEventListener('change', () => recheckCard(card));
+
+    // Initial state — most sections start incomplete + expanded.
+    recheckCard(card);
+  });
+
+  // Expand-all / collapse-completed shortcuts in the progress strip.
+  document.getElementById('expand-all').addEventListener('click', () => {
+    document.querySelectorAll('form .card.collapsible').forEach(c => {
+      c.classList.remove('collapsed');
+      c.dataset.userExpanded = '1';
+    });
+  });
+  document.getElementById('collapse-all').addEventListener('click', () => {
+    document.querySelectorAll('form .card.collapsible.complete').forEach(c => {
+      c.classList.add('collapsed');
+    });
+  });
+}
+setupCollapsibles();
 
 /* --- upload file label + auto-compress oversized images --- */
 const ID_MAX_BYTES = 2 * 1024 * 1024;
@@ -1098,7 +1273,7 @@ attachBlurClean('input[name="whatsapp"]', cleanPhone);
 attachBlurClean('input[name="pan_number"]', cleanId);
 attachBlurClean('input[name="ifsc_code"]', cleanIfsc);
 attachBlurClean('input[name="pincode"]', cleanPincode);
-attachBlurClean('input[name="email"], input[name="alt_email"]', cleanLowerEmail);
+attachBlurClean('input[name="email"]', cleanLowerEmail);
 attachBlurClean('input[name="account_number"]', cleanAccount);
 
 /* --- form submit --- */
@@ -1132,11 +1307,10 @@ document.getElementById('onboarding-form').addEventListener('submit', async (e) 
   fd.append('ifsc_code',      cleanIfsc(get('ifsc_code')));
   fd.append('pincode',        cleanPincode(get('pincode')));
   // Emails: lowercase + trim
-  fd.append('email',     cleanLowerEmail(get('email')));
-  fd.append('alt_email', cleanLowerEmail(get('alt_email')));
+  fd.append('email', cleanLowerEmail(get('email')));
   // Trim everything else
   const trimFields = [
-    'full_name', 'occupation', 'google_id',
+    'full_name', 'google_id',
     'telegram_id', 'discord_id', 'twitter_id', 'referred_by',
     'hardest_problem', 'health_notes',
     'address_line1', 'address_line2', 'city', 'state',
