@@ -637,13 +637,26 @@
         <div class="badge photo-badge" style="display:none"></div>
       </div>
     `;
-    wrap.querySelector(".rm").onclick = () => wrap.remove();
+    wrap.querySelector(".rm").onclick = () => { wrap.remove(); renumberPeople(); };
     wrap.querySelector(".p-photo").onchange = (e) => onPhotoPick(wrap, e.target.files[0]);
     wrap.querySelector(".loc-retry").onclick = () => captureLocation(wrap);
     document.getElementById("people").appendChild(wrap);
     captureLocation(wrap);
   }
   document.getElementById("add-person").onclick = addPerson;
+
+  // Keep visible labels sequential (1, 2, 3, ...) regardless of add/remove history.
+  // Without this, removing the middle row leaves gaps like "Person 1, Person 2, Person 5"
+  // which has confused chiefs when the submit validator points at "Person 3".
+  function renumberPeople() {
+    const rows = document.querySelectorAll(".person");
+    rows.forEach((row, i) => {
+      const label = row.querySelector(".person-head span");
+      if (label) label.textContent = `Person ${i + 1}`;
+      row.dataset.idx = i + 1;
+    });
+    personCounter = rows.length;
+  }
 
   async function captureLocation(personEl) {
     const badge = personEl.querySelector(".loc-badge");
@@ -849,24 +862,41 @@
     if (people.length === 0) { alert("Add at least one attendee."); return null; }
     const attendance = [];
     const photos = [];
+    // Uses the visible "Person N" label from the row header, not the array index,
+    // so the error message matches what the chief actually sees on screen.
+    const rowLabel = (p) => p.querySelector(".person-head span")?.textContent?.trim() || "This person";
+    const failRow = (p, missingInput, msg) => {
+      p.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (missingInput) setTimeout(() => { try { missingInput.focus(); } catch (_) {} }, 250);
+      alert(msg);
+    };
     for (let i = 0; i < people.length; i++) {
       const p = people[i];
-      const name  = p.querySelector(".p-name").value.trim();
-      const phone = p.querySelector(".p-phone").value.trim();
-      const pan   = p.querySelector(".p-pan").value.replace(/[\s-]+/g, "").toUpperCase();
+      const nameEl  = p.querySelector(".p-name");
+      const phoneEl = p.querySelector(".p-phone");
+      const panEl   = p.querySelector(".p-pan");
+      const name  = nameEl.value.trim();
+      const phone = phoneEl.value.trim();
+      const pan   = panEl.value.replace(/[\s-]+/g, "").toUpperCase();
       const personRole = p.querySelector(".p-role").value;
       const fileEl = p.querySelector(".p-photo");
       const file  = fileEl.files[0] || null;
-      if (!name || !phone || !pan) { alert(`Person ${i+1}: fill name, phone, and PAN/Aadhaar.`); return null; }
-      if (!/^[6-9]\d{9}$/.test(phone)) { alert(`Person ${i+1}: invalid phone`); return null; }
+      const label = rowLabel(p);
+      if (!name || !phone || !pan) {
+        const missing = !name ? "Full name" : !phone ? "Phone" : "PAN/Aadhaar";
+        const firstEmpty = !name ? nameEl : !phone ? phoneEl : panEl;
+        failRow(p, firstEmpty, `${label}: ${missing} is empty.`);
+        return null;
+      }
+      if (!/^[6-9]\d{9}$/.test(phone)) { failRow(p, phoneEl, `${label}: invalid phone number.`); return null; }
       const isPan     = /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan);
       const isAadhaar = /^\d{12}$/.test(pan);
       if (!isPan && !isAadhaar) {
-        alert(`Person ${i+1}: enter a valid PAN (ABCDE1234F) or 12-digit Aadhaar.`);
+        failRow(p, panEl, `${label}: enter a valid PAN (ABCDE1234F) or 12-digit Aadhaar.`);
         return null;
       }
-      if (!["chief","captain","operator"].includes(personRole)) { alert(`Person ${i+1}: invalid role`); return null; }
-      if (!p.dataset.brLat) { alert(`Person ${i+1}: device location missing. Tap Retry on the location row.`); return null; }
+      if (!["chief","captain","operator"].includes(personRole)) { failRow(p, null, `${label}: invalid role.`); return null; }
+      if (!p.dataset.brLat) { failRow(p, null, `${label}: device location missing. Tap Retry on the location row.`); return null; }
       attendance.push({
         full_name: name, phone, pan,
         person_role: personRole,
