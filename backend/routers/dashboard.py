@@ -56,6 +56,9 @@ async def dashboard(
               if role in ("freddy", "general", "viewer")
               else [email, target])
 
+    # Collapse the old N+1 (two correlated subqueries per op) into a single
+    # GROUP BY join over attendance for the target date. Dashboard loads with
+    # 30 ops dropped from ~60 round-trips to 1.
     sql = f"""
         SELECT
           o.op_id, o.factory_name, o.shift, o.location, o.sales_team_name,
@@ -68,14 +71,20 @@ async def dashboard(
           r.devices_available, r.devices_deployed, r.devices_lost, r.devices_recovered,
           r.good_hours_projected, r.good_hours_actual,
           r.actual_reporting_time, r.time_leaving,
-          (SELECT COUNT(*) FROM attendance  a
-             WHERE a.op_id = o.op_id AND a.report_date = ${date_param}) AS attendance_count,
-          (SELECT COUNT(*) FROM attendance  a
-             WHERE a.op_id = o.op_id AND a.report_date = ${date_param} AND a.verified) AS verified_count
+          COALESCE(ac.attendance_count, 0) AS attendance_count,
+          COALESCE(ac.verified_count, 0)   AS verified_count
         FROM operations o
         {scope_join}
         LEFT JOIN daily_reports r
                ON r.op_id = o.op_id AND r.report_date = ${date_param}
+        LEFT JOIN (
+            SELECT op_id,
+                   COUNT(*)                          AS attendance_count,
+                   COUNT(*) FILTER (WHERE verified)  AS verified_count
+              FROM attendance
+             WHERE report_date = ${date_param}
+             GROUP BY op_id
+        ) ac ON ac.op_id = o.op_id
         ORDER BY o.factory_name, o.shift
     """
     rows = await db.fetch(sql, *params)

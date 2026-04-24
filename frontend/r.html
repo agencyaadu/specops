@@ -7,6 +7,8 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://backend-production-3d2d.up.railway.app" crossorigin />
+<link rel="dns-prefetch" href="https://backend-production-3d2d.up.railway.app" />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -38,6 +40,13 @@
     color:var(--text); font-family:var(--mono); font-size:13px; padding:8px 2px; outline:none;
   }
   input:focus,textarea:focus { border-bottom-color:var(--accent); }
+  /* color-scheme:dark swaps the browser-native date-picker chrome (the little
+     calendar icon at the right of the field) to the dark variant so it's
+     visible against our dark surface. */
+  input[type=date], input[type=datetime-local], input[type=time] { color-scheme: dark; }
+  html[data-theme="light"] input[type=date],
+  html[data-theme="light"] input[type=datetime-local],
+  html[data-theme="light"] input[type=time] { color-scheme: light; }
   textarea { resize:vertical; min-height:60px; }
   .row2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   .row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
@@ -169,7 +178,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.min.js"></script>
-<script src="/config.js"></script>
+<script src="/config.js?v=railway"></script>
 <script>
 (function () {
   const API      = window.BACKEND_URL;

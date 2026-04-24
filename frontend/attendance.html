@@ -7,6 +7,8 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://backend-production-3d2d.up.railway.app" crossorigin />
+<link rel="dns-prefetch" href="https://backend-production-3d2d.up.railway.app" />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -38,6 +40,12 @@
     color:var(--text); font-family:var(--mono); font-size:13px; padding:8px 2px; outline:none;
   }
   input:focus,textarea:focus { border-bottom-color:var(--accent); }
+  /* Swap the native date-picker chrome to dark so the little calendar icon is
+     visible against our dark surface. */
+  input[type=date], input[type=datetime-local], input[type=time] { color-scheme: dark; }
+  html[data-theme="light"] input[type=date],
+  html[data-theme="light"] input[type=datetime-local],
+  html[data-theme="light"] input[type=time] { color-scheme: light; }
   .row2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   @media (max-width:640px) { .row2 { grid-template-columns:1fr; } }
   .btn {
@@ -130,7 +138,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.min.js"></script>
-<script src="/config.js"></script>
+<script src="/config.js?v=railway"></script>
 <script>
 (function () {
   const API      = window.BACKEND_URL;
