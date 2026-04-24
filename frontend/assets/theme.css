@@ -100,6 +100,33 @@ html[data-theme="light"] .theme-fab {
 }
 .theme-fab:hover { border-color: var(--accent); }
 
+/* Floating home button — mirror of the theme toggle, bottom-left.
+   Injected by theme.js on every non-home page. */
+.home-fab {
+  position: fixed;
+  bottom: 18px;
+  left: 18px;
+  z-index: 9998;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border-md);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  text-decoration: none;
+  transition: border-color .12s, background .12s;
+  border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.30);
+}
+.home-fab svg { width: 18px; height: 18px; display: block; }
+.home-fab:hover { border-color: var(--accent); }
+html[data-theme="light"] .home-fab {
+  box-shadow: 0 4px 14px rgba(0,0,0,.08);
+}
+
 /* Make sure cards / table headers don't look glaringly white in light mode */
 html[data-theme="light"] .card,
 html[data-theme="light"] .kpi,
