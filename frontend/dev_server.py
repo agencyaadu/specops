@@ -14,12 +14,15 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 # Keep in sync with the `rewrites` array in /vercel.json.
 REWRITES = [
     (re.compile(r"^/r/[^/]+/?$"),     "/r.html"),
+    (re.compile(r"^/report/?$"),       "/r.html"),
+    (re.compile(r"^/report/[^/]+/?$"), "/r.html"),
     (re.compile(r"^/ops/?$"),          "/ops.html"),
     (re.compile(r"^/ops/general/?$"),  "/ops-admin.html"),
     (re.compile(r"^/ops/chief/?$"),    "/chief-admin.html"),
     (re.compile(r"^/ops/captain/?$"),  "/captain.html"),
     (re.compile(r"^/ops/dashboard/?$"),"/dashboard.html"),
     (re.compile(r"^/ops/analytics/?$"),"/analytics.html"),
+    (re.compile(r"^/ops/validate/?$"), "/validate.html"),
 ]
 
 # Clean URL aliases (cleanUrls:true on Vercel) — let /onboard serve /onboard.html, etc.

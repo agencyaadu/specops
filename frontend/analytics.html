@@ -198,11 +198,11 @@
       return showBanner("err", `Signed in as ${user.email} (role: ${user.role || "none"}). Analytics is for Freddys, generals, chiefs, and viewers.`);
     }
     whoEl.textContent = `${user.email} · ${user.role}`;
-    const adminHref = ["freddy","general"].includes(user.role) ? "/ops-admin.html"
-                    : user.role === "chief" ? "/chief-admin.html"
+    const adminHref = ["freddy","general"].includes(user.role) ? "/ops/general"
+                    : user.role === "chief" ? "/ops/chief"
                     : null;
     nav.innerHTML = `
-      <a href="/dashboard.html">Dashboard</a>
+      <a href="/ops/dashboard">Dashboard</a>
       ${adminHref ? `<a href="${adminHref}">← Admin</a>` : ""}
     `;
 

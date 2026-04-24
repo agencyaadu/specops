@@ -183,13 +183,18 @@
 (function () {
   const API      = window.BACKEND_URL;
   const TOKEN_K  = "spec_token";
-  // op_id may come from the path (vercel rewrites /r/:op_id -> /r.html) or ?op= for
-  // deep links, but the user can also switch via the dropdown. Treat URL opId as
-  // just the initial selection.
-  let opId = location.pathname.replace(/\/+$/,"").split("/").pop();
-  if (!opId || opId === "r" || opId === "r.html") {
-    opId = new URLSearchParams(location.search).get("op") || "";
+  // op_id may come from the path (/r/:op_id or /report/:op_id both rewrite to r.html)
+  // or from ?op= for deep links; the user can also switch via the dropdown. Treat the
+  // URL opId as just the initial selection.
+  let opId = "";
+  {
+    const parts = location.pathname.replace(/\/+$/, "").split("/").filter(Boolean);
+    // parts: [] on "/", ["r","abc"] on /r/abc, ["report","abc"] on /report/abc.
+    if (parts.length >= 2 && (parts[0] === "r" || parts[0] === "report")) {
+      opId = decodeURIComponent(parts[1] || "");
+    }
   }
+  if (!opId) opId = new URLSearchParams(location.search).get("op") || "";
   let selectedDate = "";                // yyyy-mm-dd, empty = let server default
   let currentCtx   = null;              // last op context returned by the server
   let loadToken    = 0;                 // guards against out-of-order loads on quick changes
@@ -529,12 +534,12 @@
     // Edit op details - chiefs do this via Chief Admin for their assigned ops;
     // generals/marshals do it via Ops Admin.
     if (role === "chief") {
-      links.push(`<a class="btn ghost" href="/chief-admin.html" target="_blank" rel="noopener">Edit op details →</a>`);
+      links.push(`<a class="btn ghost" href="/ops/chief" target="_blank" rel="noopener">Edit op details →</a>`);
     } else if (["general", "freddy"].includes(role)) {
-      links.push(`<a class="btn ghost" href="/ops-admin.html" target="_blank" rel="noopener">Ops admin →</a>`);
+      links.push(`<a class="btn ghost" href="/ops/general" target="_blank" rel="noopener">Ops admin →</a>`);
     }
     if (["chief","general","freddy","viewer"].includes(role)) {
-      links.push(`<a class="btn ghost" href="/dashboard.html" target="_blank" rel="noopener">Dashboard →</a>`);
+      links.push(`<a class="btn ghost" href="/ops/dashboard" target="_blank" rel="noopener">Dashboard →</a>`);
     }
     if (links.length) {
       host.innerHTML = links.join("");

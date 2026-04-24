@@ -1,7 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "cleanUrls": true,
+  "trailingSlash": false,
   "rewrites": [
-    { "source": "/r/:op_id",    "destination": "/r.html" },
+    { "source": "/r/:op_id",       "destination": "/r.html" },
+    { "source": "/report",         "destination": "/r.html" },
+    { "source": "/report/:op_id",  "destination": "/r.html" },
     { "source": "/ops",         "destination": "/ops.html" },
     { "source": "/ops/general", "destination": "/ops-admin.html" },
     { "source": "/ops/chief",   "destination": "/chief-admin.html" },
