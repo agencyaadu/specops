@@ -227,28 +227,6 @@ CREATE TABLE IF NOT EXISTS op_assignments (
 CREATE INDEX IF NOT EXISTS idx_op_assignments_email ON op_assignments(email);
 """
 
-CREATE_PERSON_ASSIGNMENTS = """
-CREATE TABLE IF NOT EXISTS person_assignments (
-    id                       BIGSERIAL PRIMARY KEY ,
-    email                    TEXT NOT NULL ,
-    assignment_date          DATE NOT NULL ,
-    op_id                    TEXT REFERENCES operations(op_id) ON DELETE SET NULL ,
-    role                     TEXT NOT NULL CHECK (role IN ('operator','captain','chief')) ,
-    reports_to_chief_email   TEXT ,
-    notes                    TEXT ,
-    -- 'self'       = the person filled the update form
-    -- 'attendance' = derived from a chief/captain attendance submission
-    -- 'admin'      = freddy/general manually set it
-    source                   TEXT NOT NULL DEFAULT 'self' CHECK (source IN ('self','attendance','admin')) ,
-    created_at               TIMESTAMPTZ DEFAULT NOW() ,
-    UNIQUE (email, assignment_date, source)
-);
-CREATE INDEX IF NOT EXISTS idx_person_assignments_email_date
-    ON person_assignments(email, assignment_date DESC);
-CREATE INDEX IF NOT EXISTS idx_person_assignments_op_date
-    ON person_assignments(op_id, assignment_date DESC);
-"""
-
 ALL_DDL = [
     CREATE_SUBMISSIONS,
     CREATE_OPERATIONS,
@@ -258,7 +236,6 @@ ALL_DDL = [
     CREATE_ATTENDANCE,
     CREATE_OP_ASSIGNMENTS,
     CREATE_NOTES,
-    CREATE_PERSON_ASSIGNMENTS,
     CREATE_REPORT_REMINDERS,
 ]
 
