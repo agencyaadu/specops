@@ -46,8 +46,10 @@ CREATE TABLE IF NOT EXISTS submissions (
     -- pan
     pan_number_enc      TEXT ,
 
-    -- files (Supabase Storage public URL for PAN; unlisted YouTube URL for intro)
+    -- files (Supabase Storage public URL for PAN; public URL for profile pic;
+    -- optional public link for intro video)
     pan_card_url        TEXT ,
+    profile_picture_url TEXT ,
     intro_video_url     TEXT ,
 
     -- consent
@@ -55,6 +57,7 @@ CREATE TABLE IF NOT EXISTS submissions (
     consented_terms     BOOLEAN NOT NULL DEFAULT FALSE
 );
 
+ALTER TABLE submissions ADD COLUMN IF NOT EXISTS profile_picture_url TEXT;
 CREATE INDEX IF NOT EXISTS idx_submissions_email      ON submissions(email);
 CREATE INDEX IF NOT EXISTS idx_submissions_created_at ON submissions(created_at DESC);
 """

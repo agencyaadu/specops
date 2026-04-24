@@ -14,8 +14,10 @@ log = logging.getLogger(__name__)
 
 router = APIRouter()
 
-ALLOWED_DOC_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
-MAX_DOC_MB        = 2
+ALLOWED_DOC_TYPES     = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
+ALLOWED_PHOTO_TYPES   = {"image/jpeg", "image/png", "image/webp"}
+MAX_DOC_MB            = 2
+MAX_PHOTO_MB          = 2
 
 PAN_RE     = re.compile(r"^[A-Z]{5}[0-9]{4}[A-Z]$")
 AADHAAR_RE = re.compile(r"^\d{12}$")
@@ -32,7 +34,13 @@ def _safe_filename(name: str, fallback_ext: str) -> str:
     return f"{stem[:64]}{ext}"
 
 def _validate_video_url(url: str) -> str:
+    """Accepts a public http(s) link or empty string (intro video is optional).
+
+    Intentionally lenient to allow YouTube, Loom, Drive, and bare S3/ipfs links.
+    """
     url = (url or "").strip()
+    if not url:
+        return ""
     if not re.match(r"^https?://[^\s]+\.[^\s]+", url):
         raise HTTPException(400, "intro video must be a public http(s) URL")
     return url
@@ -102,11 +110,12 @@ async def submit(
     branch_name:      str  = Form(...) ,
 
     pan_number:       str  = Form(...) ,
-    video_url:        str  = Form(...) ,
+    video_url:        str  = Form("") ,
     consented:        bool = Form(False) ,
     consented_terms:  bool = Form(False) ,
 
-    pan_card:    UploadFile = File(...) ,
+    pan_card:        UploadFile = File(...) ,
+    profile_picture: UploadFile = File(...) ,
 ):
     if not consented or not consented_terms:
         raise HTTPException(400, "both consents required")
@@ -147,7 +156,7 @@ async def submit(
         "address_line1": address_line1, "pincode": pincode, "city": city, "state": state,
         "upi_id": upi_id, "beneficiary_name": beneficiary_name, "account_number": account_number,
         "ifsc_code": ifsc_code, "bank_name": bank_name, "branch_name": branch_name,
-        "pan_number": pan_number, "video_url": video_url,
+        "pan_number": pan_number,
     }
     missing = [k for k, v in required_text.items() if not v]
     if missing:
@@ -164,6 +173,17 @@ async def submit(
     _check_size(pan_bytes, MAX_DOC_MB, "ID card")
     pan_url = await _store(pan_bytes, "pan", pan_card.filename, mime, ".bin")
 
+    # Profile picture is required and must be an image. Client compresses before
+    # upload so a strict 2MB cap is safe.
+    if not profile_picture.filename:
+        raise HTTPException(400, "profile picture is required")
+    photo_bytes = await profile_picture.read()
+    photo_mime  = profile_picture.content_type or "application/octet-stream"
+    if photo_mime not in ALLOWED_PHOTO_TYPES:
+        raise HTTPException(400, "profile picture must be jpg, png, or webp")
+    _check_size(photo_bytes, MAX_PHOTO_MB, "profile picture")
+    profile_url = await _store(photo_bytes, "profile", profile_picture.filename, photo_mime, ".jpg")
+
     db = request.app.state.db
 
     row_id = await db.fetchval("""
@@ -175,7 +195,7 @@ async def submit(
             upi_id, beneficiary_name, account_number_enc,
             ifsc_code, bank_name, branch_name,
             pan_number_enc,
-            pan_card_url, intro_video_url,
+            pan_card_url, profile_picture_url, intro_video_url,
             consented, consented_terms
         ) VALUES (
             $1,$2,$3,$4,
@@ -185,8 +205,8 @@ async def submit(
             $17,$18,$19,
             $20,$21,$22,
             $23,
-            $24,$25,
-            $26,$27
+            $24,$25,$26,
+            $27,$28
         ) RETURNING id
     """,
         full_name, whatsapp, email, google_id,
@@ -197,7 +217,7 @@ async def submit(
         upi_id, beneficiary_name, encrypt(account_number),
         ifsc_code, bank_name, branch_name,
         encrypt(pan_number),
-        pan_url, clean_video_url,
+        pan_url, profile_url, clean_video_url,
         consented, consented_terms,
     )
 
@@ -217,7 +237,9 @@ async def submit(
             "account_number": account_number,
             "ifsc_code": ifsc_code, "bank_name": bank_name, "branch_name": branch_name,
             "pan_number": pan_number,
-            "pan_card_url": pan_url, "intro_video_url": clean_video_url,
+            "pan_card_url": pan_url,
+            "profile_picture_url": profile_url,
+            "intro_video_url": clean_video_url,
             "consented": consented, "consented_terms": consented_terms,
         }
         async def _push():

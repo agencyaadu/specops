@@ -12,7 +12,7 @@ HEADERS = [
     "Languages", "Hardest Problem", "Health Notes",
     "Address Line 1", "Address Line 2", "Pincode", "City", "State",
     "UPI", "Beneficiary", "Account Number", "IFSC", "Bank", "Branch",
-    "PAN Number", "PAN Card URL", "Intro Video URL",
+    "PAN Number", "PAN Card URL", "Profile Picture URL", "Intro Video URL",
     "Consented KYC", "Consented Terms",
 ]
 
@@ -22,7 +22,7 @@ KEYS = [
     "languages", "hardest_problem", "health_notes",
     "address_line1", "address_line2", "pincode", "city", "state",
     "upi_id", "beneficiary_name", "account_number", "ifsc_code", "bank_name", "branch_name",
-    "pan_number", "pan_card_url", "intro_video_url",
+    "pan_number", "pan_card_url", "profile_picture_url", "intro_video_url",
     "consented", "consented_terms",
 ]
 
