@@ -16,6 +16,8 @@ REWRITES = [
     (re.compile(r"^/r/[^/]+/?$"),     "/r.html"),
     (re.compile(r"^/report/?$"),       "/r.html"),
     (re.compile(r"^/report/[^/]+/?$"), "/r.html"),
+    (re.compile(r"^/attendance/?$"),       "/attendance.html"),
+    (re.compile(r"^/attendance/[^/]+/?$"), "/attendance.html"),
     (re.compile(r"^/ops/?$"),          "/ops.html"),
     (re.compile(r"^/ops/general/?$"),  "/ops-admin.html"),
     (re.compile(r"^/ops/chief/?$"),    "/chief-admin.html"),

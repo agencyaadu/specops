@@ -98,8 +98,13 @@ async def submit_daily(
     events = body.get("events") or []
     attendance = body.get("attendance") or []
 
-    if not isinstance(attendance, list) or len(attendance) == 0:
-        raise HTTPException(400, "attendance must be a non-empty list")
+    # Attendance used to be mandatory on this endpoint, which meant a chief couldn't
+    # submit today's device/operator counts unless every person was entered at the
+    # same time. In practice that led to reports never being filed. Attendance is
+    # now optional here and can be submitted via POST /api/attendance/{op_id}
+    # incrementally throughout the shift.
+    if not isinstance(attendance, list):
+        raise HTTPException(400, "attendance must be a list when supplied")
 
     # Photos are optional per-attendee. The client sends `has_photo: true` on
     # entries that have a photo, and appends those photo files (in same order)
@@ -278,12 +283,14 @@ async def submit_daily(
                 )
 
             # Re-submit semantics: wipe existing attendance for this op/date so the
-            # new list is authoritative. Confirmed/rejected history for that day is
-            # dropped - if that matters later, we can switch to soft-delete.
-            await conn.execute(
-                "DELETE FROM attendance WHERE op_id = $1 AND report_date = $2",
-                op_id, report_date,
-            )
+            # new list is authoritative. A report-only submission (attendance split
+            # off to /api/attendance) passes an empty list - in that case we must
+            # NOT destroy existing attendance for the day.
+            if prepared:
+                await conn.execute(
+                    "DELETE FROM attendance WHERE op_id = $1 AND report_date = $2",
+                    op_id, report_date,
+                )
 
             status = "pending" if validator_role else "confirmed"
             confirmed_at = datetime.utcnow() if status == "confirmed" else None
