@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Daily Report - SpecOps</title>
+<title>Daily Report - SPEC-OPS</title>
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -484,7 +484,7 @@
     const push = (row) => lines.push(row.map(csvCell).join(","));
 
     // Section 1: metadata
-    push(["Section", "SpecOps daily report backup"]);
+    push(["Section", "SPEC-OPS daily report backup"]);
     push(["Op ID",      opId]);
     push(["Submitted",  new Date().toISOString()]);
     push([]);
@@ -514,7 +514,7 @@
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement("a");
     a.href = url;
-    a.download = `specops_${opId}_${stamp}.csv`;
+    a.download = `spec-ops_${opId}_${stamp}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

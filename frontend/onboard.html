@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Onboarding - SpecOps</title>
+<title>Onboarding - SPEC-OPS</title>
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/favicon-180.png" />
@@ -395,10 +395,10 @@
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    animation: specops-shimmer 5s ease-in-out infinite;
+    animation: spec-ops-shimmer 5s ease-in-out infinite;
     min-height: 1em;
   }
-  @keyframes specops-shimmer {
+  @keyframes spec-ops-shimmer {
     0%, 100% { background-position: 100% 50%; }
     50%      { background-position: 0% 50%; }
   }
@@ -538,7 +538,7 @@
 
   <!-- top bar -->
   <div class="topbar">
-    <h1>SpecOps Onboarding</h1>
+    <h1>SPEC-OPS Onboarding</h1>
     <div class="meta">
       <span>Phase 1 / V1</span>
       <button type="button" class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">Light</button>
@@ -792,7 +792,7 @@
       <div class="welcome-id reveal" id="welcome-id">Application ID &middot; <b id="welcome-id-num">#-</b></div>
       <div class="welcome-discord reveal" id="welcome-discord">
         <div class="welcome-discord-label">// Join the Discord</div>
-        <div class="welcome-discord-desc">Daily coordination, shoutouts, and all things SpecOps happen here. Pop in and say hi.</div>
+        <div class="welcome-discord-desc">Daily coordination, shoutouts, and all things SPEC-OPS happen here. Pop in and say hi.</div>
         <a class="btn btn-primary" href="https://discord.gg/8GNWHmSm" target="_blank" rel="noopener noreferrer">Open Discord server →</a>
       </div>
       <div class="welcome-actions reveal" id="welcome-actions">
@@ -959,8 +959,8 @@ async function runWelcomeSequence(id) {
   await sleep(500);
   if (seq !== welcomeSeq) return;
 
-  // hero: letter-by-letter reveal of SPECOPS
-  await typeInto(hero, 'SpecOps', 120, seq);
+  // hero: letter-by-letter reveal of SPEC-OPS
+  await typeInto(hero, 'SPEC-OPS', 120, seq);
   await sleep(350);
   if (seq !== welcomeSeq) return;
 

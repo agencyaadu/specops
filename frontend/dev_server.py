@@ -49,8 +49,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         return super().translate_path(path)
 
 
+class ReusableThreadingTCPServer(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+
 if __name__ == "__main__":
-    with socketserver.TCPServer(("", PORT), Handler) as s:
+    with ReusableThreadingTCPServer(("", PORT), Handler) as s:
         print(f"dev_server: serving {ROOT} at http://localhost:{PORT}")
         try:
             s.serve_forever()

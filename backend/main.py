@@ -48,7 +48,7 @@ async def lifespan(app: FastAPI):
     yield
     await app.state.db.close()
 
-app = FastAPI(title="SpecOps Onboarding", lifespan=lifespan)
+app = FastAPI(title="SPEC-OPS Onboarding", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
