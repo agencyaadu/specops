@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS operations (
     shift                     TEXT NOT NULL ,
     location                  TEXT ,
     map_link                  TEXT ,
+    whatsapp_group_url        TEXT ,
     poc1_name                 TEXT ,
     poc1_phone                TEXT ,
     poc1_role                 TEXT ,
@@ -87,6 +88,23 @@ CREATE TABLE IF NOT EXISTS operations (
     created_at                TIMESTAMPTZ DEFAULT NOW() ,
     UNIQUE (factory_name, shift)
 );
+ALTER TABLE operations ADD COLUMN IF NOT EXISTS whatsapp_group_url TEXT;
+"""
+
+CREATE_REPORT_REMINDERS = """
+CREATE TABLE IF NOT EXISTS report_reminders (
+    id              BIGSERIAL PRIMARY KEY ,
+    op_id           TEXT NOT NULL REFERENCES operations(op_id) ON DELETE CASCADE ,
+    chief_email     TEXT NOT NULL ,
+    report_date     DATE NOT NULL ,
+    kind            TEXT NOT NULL DEFAULT 'discord' CHECK (kind IN ('discord','whatsapp','email')) ,
+    status          TEXT NOT NULL DEFAULT 'sent' CHECK (status IN ('sent','failed','skipped')) ,
+    error           TEXT ,
+    sent_at         TIMESTAMPTZ NOT NULL DEFAULT NOW() ,
+    sent_by_email   TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_report_reminders_recent
+    ON report_reminders(op_id, chief_email, sent_at DESC);
 """
 
 CREATE_DAILY_REPORTS = """
@@ -241,6 +259,7 @@ ALL_DDL = [
     CREATE_OP_ASSIGNMENTS,
     CREATE_NOTES,
     CREATE_PERSON_ASSIGNMENTS,
+    CREATE_REPORT_REMINDERS,
 ]
 
 async def init_db(pool: asyncpg.Pool):

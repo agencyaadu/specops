@@ -425,7 +425,10 @@
         <div class="field"><label>Location (city)</label><input type="text" id="f-location" placeholder="e.g. Mumbai, Pune, Bengaluru" /></div>
         <div class="field"><label>Map link</label><input type="url" id="f-map" placeholder="https://maps.app.goo.gl/..." /></div>
       </div>
-      <div class="field"><label>Sales team name</label><input type="text" id="f-sales" /></div>
+      <div class="row2">
+        <div class="field"><label>Sales team name</label><input type="text" id="f-sales" /></div>
+        <div class="field"><label>WhatsApp group link</label><input type="url" id="f-wa" placeholder="https://chat.whatsapp.com/..." /></div>
+      </div>
       <div class="sub-label">POC 1</div>
       <div class="row3">
         <div class="field"><label>Name</label><input type="text" id="f-poc1n" /></div>
@@ -1201,6 +1204,7 @@ function locationToCoord(loc) {
       shift:                  val("f-shift"),
       location:               val("f-location") || null,
       map_link:               val("f-map") || null,
+      whatsapp_group_url:     val("f-wa") || null,
       sales_team_name:        val("f-sales") || null,
       poc1_name:              val("f-poc1n") || null,
       poc1_phone:             val("f-poc1p") || null,
