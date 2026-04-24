@@ -497,7 +497,7 @@
     // Edit op details - chiefs do this via Chief Admin for their assigned ops;
     // generals/marshals do it via Ops Admin.
     if (role === "chief") {
-      links.push(`<a class="btn ghost" href="/ops/chief" target="_blank" rel="noopener">Edit op details →</a>`);
+      links.push(`<a class="btn ghost" href="/ops/general" target="_blank" rel="noopener">Edit op details →</a>`);
     } else if (["general", "freddy"].includes(role)) {
       links.push(`<a class="btn ghost" href="/ops/general" target="_blank" rel="noopener">Ops admin →</a>`);
     }

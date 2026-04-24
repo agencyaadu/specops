@@ -123,10 +123,10 @@
     signoutBtn.classList.remove("hidden");
 
     const dest = {
-      freddy:  "/ops/general",     // Freddy shares the Ops Admin surface
-      general: "/ops/general",
-      chief:   "/ops/chief",
-      captain: "/ops/captain",
+      freddy:  "/ops/general",     // Freddy + general + chief share the same Ops
+      general: "/ops/general",     // Admin surface; the page hides admin-only
+      chief:   "/ops/general",     // controls for chiefs and the backend scopes
+      captain: "/ops/captain",     // /api/ops to their assigned ops.
       viewer:  "/ops/dashboard",   // viewers land straight on the dashboard
     }[user.role];
     if (dest) { location.replace(dest); return; }

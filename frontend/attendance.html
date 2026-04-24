@@ -375,7 +375,7 @@
     if (role === "owner") role = "freddy";
     const host = document.getElementById("quick-nav");
     const links = [];
-    if (role === "chief") links.push(`<a class="btn ghost" href="/ops/chief" target="_blank" rel="noopener">Edit op details →</a>`);
+    if (role === "chief") links.push(`<a class="btn ghost" href="/ops/general" target="_blank" rel="noopener">Edit op details →</a>`);
     else if (["general","freddy"].includes(role)) links.push(`<a class="btn ghost" href="/ops/general" target="_blank" rel="noopener">Ops admin →</a>`);
     if (["chief","general","freddy","viewer"].includes(role)) links.push(`<a class="btn ghost" href="/ops/dashboard" target="_blank" rel="noopener">Dashboard →</a>`);
     if (links.length) { host.innerHTML = links.join(""); host.classList.remove("hidden"); }
