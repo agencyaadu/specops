@@ -280,10 +280,20 @@
         : "-";
       const art = r.actual_reporting_time || "-";
       const tl  = r.time_leaving || "-";
+      // If the op has a WhatsApp group URL, wrap the factory name in an
+      // anchor so chiefs/viewers can jump to the team chat directly.
+      const wa = (op.whatsapp_group_url || "").trim();
+      const factoryHtml = wa && /^https?:\/\//i.test(wa)
+        ? `<a href="${esc(wa)}" target="_blank" rel="noopener" title="Open team WhatsApp"><strong>${esc(op.factory_name)}</strong></a>`
+        : `<strong>${esc(op.factory_name)}</strong>`;
+      // Remind button appears only on pending-today rows; wired up below.
+      const remindBtn = state === "pending"
+        ? `<button class="btn tiny remind-btn" title="Ping the assigned chief on Discord">Remind</button>`
+        : "";
       return `
         <tr class="op-row ${state}" data-op="${esc(op.op_id)}" data-date="${esc(d.date)}" data-factory="${esc(op.factory_name)}" data-shift="${esc(op.shift)}">
           <td>
-            <div><strong>${esc(op.factory_name)}</strong> · ${esc(op.shift)}</div>
+            <div>${factoryHtml} · ${esc(op.shift)}</div>
             <div><code>${esc(op.op_id)}</code> · ${esc(op.location || "")}</div>
           </td>
           <td>${stateBadge}</td>
@@ -295,7 +305,10 @@
             <span class="pill ${op.attendance_count > 0 ? "ok" : "mute"}">${op.attendance_count}</span>
             <span class="pill mute" title="verified">${op.verified_count}</span>
           </td>
-          <td><button class="btn tiny attendance-btn">View</button></td>
+          <td style="white-space:nowrap">
+            ${remindBtn}
+            <button class="btn tiny attendance-btn">View</button>
+          </td>
         </tr>
       `;
     }).join("");
@@ -321,7 +334,39 @@
         e.stopPropagation();
         openDrawer(tr.dataset.op, tr.dataset.date, tr.dataset.factory, tr.dataset.shift);
       };
+      const rb = tr.querySelector(".remind-btn");
+      if (rb) rb.onclick = (e) => { e.stopPropagation(); sendReminder(rb, tr.dataset.op, tr.dataset.factory, tr.dataset.shift); };
     });
+  }
+
+  async function sendReminder(btn, opId, factory, shift) {
+    const orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Pinging…";
+    try {
+      const res = await fetch(API + "/api/reminders/discord", {
+        method: "POST",
+        headers: { ...authHdr(), "Content-Type": "application/json" },
+        body: JSON.stringify({ op_id: opId }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (res.status === 503) { alert("Discord webhook isn't configured yet. Set DISCORD_WEBHOOK_URL on the backend."); return; }
+      if (!res.ok)            { alert("Reminder failed: " + (j.detail || res.status)); return; }
+      // Build a short confirmation so the user sees what actually happened.
+      const parts = [];
+      if (j.sent > 0)                parts.push(`${j.sent} sent`);
+      if (j.skipped_cooldown?.length) parts.push(`${j.skipped_cooldown.length} on cooldown`);
+      if (j.missing_discord?.length)  parts.push(`${j.missing_discord.length} missing Discord ID`);
+      if (j.errors?.length)           parts.push(`${j.errors.length} errors`);
+      btn.textContent = parts.length ? parts.join(" · ") : "No-op";
+      setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 4000);
+      return;
+    } catch (e) {
+      alert("Reminder failed: " + e.message);
+    } finally {
+      // If we aborted into alert()s above, re-enable the button now.
+      if (btn.textContent === "Pinging…") { btn.textContent = orig; btn.disabled = false; }
+    }
   }
 
   // ---- attendance drawer ----

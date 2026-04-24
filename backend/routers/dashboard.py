@@ -59,7 +59,7 @@ async def dashboard(
     sql = f"""
         SELECT
           o.op_id, o.factory_name, o.shift, o.location, o.sales_team_name,
-          o.poc1_name, o.poc1_phone, o.is_active,
+          o.poc1_name, o.poc1_phone, o.is_active, o.whatsapp_group_url,
           r.id                    AS report_id,
           r.submitted_at,
           r.submitted_by_email,
@@ -105,6 +105,7 @@ async def dashboard(
             "poc1_name":         r["poc1_name"],
             "poc1_phone":        r["poc1_phone"],
             "is_active":         r["is_active"],
+            "whatsapp_group_url":r["whatsapp_group_url"],
             "submitted":         has_report,
             "attendance_count":  attc,
             "verified_count":    verc,

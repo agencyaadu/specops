@@ -29,6 +29,7 @@ class OpIn(BaseModel):
     shift: str
     location: Optional[str] = None
     map_link: Optional[str] = None
+    whatsapp_group_url: Optional[str] = None
     poc1_name: Optional[str] = None
     poc1_phone: Optional[str] = None
     poc1_role: Optional[str] = None
@@ -48,6 +49,7 @@ class OpPatch(BaseModel):
     is_active: Optional[bool] = None
     location: Optional[str] = None
     map_link: Optional[str] = None
+    whatsapp_group_url: Optional[str] = None
     poc1_name: Optional[str] = None
     poc1_phone: Optional[str] = None
     poc1_role: Optional[str] = None
@@ -114,23 +116,23 @@ async def create_op(body: OpIn, request: Request, claims: dict = Depends(general
             await conn.execute(
                 """
                 INSERT INTO operations (
-                    op_id, factory_name, shift, location, map_link,
+                    op_id, factory_name, shift, location, map_link, whatsapp_group_url,
                     poc1_name, poc1_phone, poc1_role,
                     poc2_name, poc2_phone, poc2_role,
                     sales_team_name,
                     shift_start, shift_end, reporting_time, deployment_start,
                     collection_start, report_submission_time, final_closing_time
                 ) VALUES (
-                    $1,$2,$3,$4,$5,
-                    $6,$7,$8,
-                    $9,$10,$11,
-                    $12,
-                    $13,$14,$15,$16,
-                    $17,$18,$19
+                    $1,$2,$3,$4,$5,$6,
+                    $7,$8,$9,
+                    $10,$11,$12,
+                    $13,
+                    $14,$15,$16,$17,
+                    $18,$19,$20
                 )
                 """,
                 op_id, body.factory_name.strip(), body.shift.strip(),
-                body.location, body.map_link,
+                body.location, body.map_link, body.whatsapp_group_url,
                 body.poc1_name, body.poc1_phone, body.poc1_role,
                 body.poc2_name, body.poc2_phone, body.poc2_role,
                 body.sales_team_name,

@@ -101,7 +101,10 @@
           <div class="field"><label>Location</label><input type="text" id="f-location" /></div>
           <div class="field"><label>Map link</label><input type="url" id="f-map" /></div>
         </div>
-        <div class="field"><label>Sales team name</label><input type="text" id="f-sales" /></div>
+        <div class="row2">
+          <div class="field"><label>Sales team name</label><input type="text" id="f-sales" /></div>
+          <div class="field"><label>WhatsApp group link</label><input type="url" id="f-wa" placeholder="https://chat.whatsapp.com/..." /></div>
+        </div>
         <div class="sub-label">POC 1</div>
         <div class="row3">
           <div class="field"><label>Name</label><input type="text" id="f-poc1n" /></div>
@@ -249,7 +252,10 @@
             <div class="field"><label>Location</label><input name="location" value="${esc(op.location ?? '')}" /></div>
             <div class="field"><label>Map link</label><input name="map_link" type="url" value="${esc(op.map_link ?? '')}" /></div>
           </div>
-          <div class="field"><label>Sales team</label><input name="sales_team_name" value="${esc(op.sales_team_name ?? '')}" /></div>
+          <div class="row2">
+            <div class="field"><label>Sales team</label><input name="sales_team_name" value="${esc(op.sales_team_name ?? '')}" /></div>
+            <div class="field"><label>WhatsApp group</label><input name="whatsapp_group_url" type="url" value="${esc(op.whatsapp_group_url ?? '')}" placeholder="https://chat.whatsapp.com/..." /></div>
+          </div>
           <div class="row3">
             <div class="field"><label>POC1 name</label><input name="poc1_name" value="${esc(op.poc1_name ?? '')}" /></div>
             <div class="field"><label>POC1 phone</label><input name="poc1_phone" value="${esc(op.poc1_phone ?? '')}" maxlength="10" /></div>
@@ -359,13 +365,16 @@
   };
   document.getElementById("submit-op").onclick = async function () {
     const payload = {};
-    ["f-factory","f-shift","f-location","f-map","f-sales",
+    ["f-factory","f-shift","f-location","f-map","f-wa","f-sales",
      "f-poc1n","f-poc1p","f-poc1r","f-poc2n","f-poc2p","f-poc2r",
      "f-shift-s","f-shift-e","f-rep-t","f-dep-s","f-col-s","f-rep-s","f-close"
     ].forEach(id => {
-      const v = document.getElementById(id).value;
+      const el = document.getElementById(id);
+      if (!el) return;  // WhatsApp field was added later; tolerate missing in legacy templates.
+      const v = el.value;
       const key = ({
         "f-factory":"factory_name","f-shift":"shift","f-location":"location","f-map":"map_link",
+        "f-wa":"whatsapp_group_url",
         "f-sales":"sales_team_name","f-poc1n":"poc1_name","f-poc1p":"poc1_phone","f-poc1r":"poc1_role",
         "f-poc2n":"poc2_name","f-poc2p":"poc2_phone","f-poc2r":"poc2_role",
         "f-shift-s":"shift_start","f-shift-e":"shift_end","f-rep-t":"reporting_time","f-dep-s":"deployment_start",
