@@ -3,13 +3,19 @@
  * Loaded after each page's inline <style>, so the CSS variables defined here
  * override the per-page :root palette (cascade order wins).
  *
- * Variables follow Anthropic-style naming:
- *   --anthropic-sans  — body text (Inter)
- *   --anthropic-serif — display/headings (Fraunces, a free modern serif
- *                       close in spirit to Tiempos)
+ * Variables:
+ *   --anthropic-sans  — body text (Roboto Condensed)
+ *   --anthropic-serif — display/headings (Radnika Next)
+ *
+ * Radnika Next is a commercial font (Fontspring); we load it via the
+ * cdnfonts.com public mirror so the design renders without self-hosting.
+ * To swap in a properly-licensed self-hosted copy later, replace the
+ * `@import` URL for "radnika-next" with an `@font-face` pointing at the
+ * licensed woff2 files.
  */
 
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;500;600;700&display=swap");
+@import url("https://fonts.cdnfonts.com/css/radnika-next");
 
 :root {
   /* softer dark — reduces eye strain vs pure #000/#fff */
@@ -32,8 +38,8 @@
   --amber-soft: rgba(217, 154, 85, 0.12);
 
   /* font stacks */
-  --anthropic-sans:  'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --anthropic-serif: 'Fraunces', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  --anthropic-sans:  'Roboto Condensed', 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --anthropic-serif: 'Radnika Next', 'Roboto Condensed', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 
   /* alias --mono so per-page CSS that still references it gets the sans font */
   --mono: var(--anthropic-sans);
