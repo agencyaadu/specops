@@ -108,14 +108,18 @@
   .op-card .kv { display:grid; grid-template-columns:80px 1fr; gap:5px 10px; font-size:11px; }
   .op-card .kv .k { color:#6b6862; font-size:9px; letter-spacing:.14em; text-transform:uppercase; padding-top:2px; }
   .op-card .kv .v { color:#e8e6e1; word-break:break-word; }
-  .op-card .card-link {
-    display:inline-flex; align-items:center; gap:5px;
-    color:#e8e6e1; text-decoration:none; border-bottom:1px dashed rgba(255,255,255,0.3);
-    padding-bottom:1px;
+  .op-card .v.with-action {
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
   }
-  .op-card .card-link:hover { color:#fff; border-bottom-color:#fff; }
-  .op-card .card-link-icon { font-size:10px; color:#9a9a9a; }
-  .op-card .card-link:hover .card-link-icon { color:#fff; }
+  .op-card .v.with-action span { flex:1; min-width:0; word-break:break-word; }
+  .op-card .mini-icon-btn {
+    width:24px; height:24px; flex-shrink:0;
+    display:inline-flex; align-items:center; justify-content:center;
+    border:1px solid rgba(255,255,255,0.25); color:#e8e6e1;
+    text-decoration:none; transition:border-color .12s, background .12s, color .12s;
+  }
+  .op-card .mini-icon-btn:hover { border-color:#fff; background:rgba(255,255,255,0.08); color:#fff; }
+  .op-card .mini-icon-btn svg { width:55%; height:55%; }
 
   /* === BELOW HERO === */
   .page { flex:1; max-width:980px; width:100%; margin:0 auto; padding:3rem 1.4rem 2rem; display:flex; flex-direction:column; }
@@ -474,6 +478,11 @@
     showOpCard(opsData[opIdx], clientX, clientY);
   }
 
+  // Tiny SVG icons for the click card — no inline link text, just buttons.
+  const ICON_OPEN_SM  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h7v7"/><path d="M10 14L21 3"/><path d="M21 14v7H3V3h7"/></svg>`;
+  const ICON_PIN_SM   = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`;
+  const ICON_PHONE_SM = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>`;
+
   function showOpCard(op, clientX, clientY) {
     const status = !op.is_active ? "off" : op.submitted ? "ok" : "warn";
     const statusText = !op.is_active ? "Inactive"
@@ -490,16 +499,23 @@
       <span class="pill ${status}">${statusText}</span>
       <div class="kv">
         <div class="k">Location</div>
-        <div class="v">${
-          op.location
-            ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(op.location)}" target="_blank" rel="noopener" class="card-link">${escHtml(op.location)}<span class="card-link-icon">↗</span></a>`
-            : "—"
-        }</div>
-        ${op.poc1_name ? `<div class="k">POC</div><div class="v">${escHtml(op.poc1_name)}${op.poc1_phone ? ` · <a href="tel:${escHtml(op.poc1_phone)}" class="card-link">${escHtml(op.poc1_phone)}</a>` : ""}</div>` : ""}
+        <div class="v with-action">
+          <span>${escHtml(op.location || "—")}</span>
+          ${op.location ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(op.location)}" target="_blank" rel="noopener" class="mini-icon-btn" title="Open in Google Maps" aria-label="Open in Maps">${ICON_PIN_SM}</a>` : ""}
+        </div>
+        ${op.poc1_name ? `
+        <div class="k">POC</div>
+        <div class="v with-action">
+          <span>${escHtml(op.poc1_name)}${op.poc1_phone ? " · " + escHtml(op.poc1_phone) : ""}</span>
+          ${op.poc1_phone ? `<a href="tel:${escHtml(op.poc1_phone)}" class="mini-icon-btn" title="Call ${escHtml(op.poc1_phone)}" aria-label="Call POC">${ICON_PHONE_SM}</a>` : ""}
+        </div>` : ""}
         ${op.report ? `<div class="k">Reported</div><div class="v">by ${escHtml(op.report.submitted_by_email || "—")}</div>` : ""}
         ${op.attendance_count != null ? `<div class="k">Attendance</div><div class="v">${op.attendance_count} (${op.verified_count || 0} verified)</div>` : ""}
         <div class="k">Reporter</div>
-        <div class="v"><a href="${escHtml(window.location.origin + "/r/" + op.op_id)}" target="_blank" rel="noopener" class="card-link">open reporter<span class="card-link-icon">↗</span></a></div>
+        <div class="v with-action">
+          <span>view daily report</span>
+          <a href="${escHtml(window.location.origin + "/r/" + op.op_id)}" target="_blank" rel="noopener" class="mini-icon-btn" title="Open reporter in new tab" aria-label="Open reporter">${ICON_OPEN_SM}</a>
+        </div>
       </div>
     `;
     // Position card near the click point, but clamp inside the hero box.
