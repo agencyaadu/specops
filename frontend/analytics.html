@@ -296,6 +296,8 @@ function flattenDashboard(dash) {
       team:           op.sales_team_name || "",
       poc:            op.poc1_name || "",
       phone:          op.poc1_phone || "",
+      // Click-through links surfaced in the factory breakdown table.
+      whatsapp_group_url: op.whatsapp_group_url || "",
       location_code:  "",
       ops:            Number(r.operators || 0),
       deployed:       Number(r.devices_deployed || 0),
@@ -310,6 +312,26 @@ function flattenDashboard(dash) {
     });
   }
   return out;
+}
+
+// Normalise an Indian phone number into the wa.me digits-only format
+// (no +, no spaces, country code prefixed). Returns "" if we can't parse it.
+function waPhone(raw) {
+  if (!raw) return "";
+  const digits = String(raw).replace(/\D+/g, "");
+  if (!digits) return "";
+  if (digits.length === 10 && /^[6-9]/.test(digits)) return "91" + digits;
+  if (digits.length === 11 && digits.startsWith("0") && /^0[6-9]/.test(digits)) return "91" + digits.slice(1);
+  if (digits.length === 12 && digits.startsWith("91")) return digits;
+  if (digits.length === 13 && digits.startsWith("91")) return digits;
+  return digits;  // best-effort; wa.me will just fail gracefully if invalid
+}
+
+function waLink(phone, message) {
+  const d = waPhone(phone);
+  if (!d) return "";
+  const m = encodeURIComponent(message || "");
+  return `https://wa.me/${d}${m ? "?text=" + m : ""}`;
 }
 
 async function loadFromBackend(fromDate, toDate) {
@@ -524,7 +546,7 @@ function renderDay() {
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th>Location</th><th>Factory</th><th>Team</th><th>POC</th><th>Shift</th>
+            <th>Factory</th><th>Location</th><th>Team</th><th>POC</th><th>Shift</th>
             <th class="num">Ops</th><th class="num">Deployed / Avail.</th><th>Rate</th>
             <th class="num">SD</th><th class="num">GH Act.</th><th class="num">GH Proj.</th><th>Status</th>
           </tr></thead>
@@ -537,11 +559,39 @@ function renderDay() {
                 : computed;
               const ghA = r.gh_actual    != null ? Number(r.gh_actual).toFixed(1)    : '—';
               const ghP = r.gh_projected != null ? Number(r.gh_projected).toFixed(1) : '—';
+
+              // Team name links to the op's WhatsApp group if we have one. Falls back to plain text.
+              const teamCell = r.team
+                ? (r.whatsapp_group_url && /^https?:\/\//i.test(r.whatsapp_group_url)
+                    ? `<a href="${r.whatsapp_group_url}" target="_blank" rel="noopener" title="Open team WhatsApp group" style="color:var(--ink);text-decoration:none;border-bottom:1px dotted var(--muted);">${r.team}</a>`
+                    : r.team)
+                : '';
+              // POC name links to a 1:1 WhatsApp chat using the POC's phone.
+              const pocWa = waLink(r.phone, "");
+              const pocCell = r.poc
+                ? (pocWa
+                    ? `<a href="${pocWa}" target="_blank" rel="noopener" title="WhatsApp ${r.poc}" style="color:var(--ink);text-decoration:none;border-bottom:1px dotted var(--muted);">${r.poc}</a>`
+                    : r.poc)
+                : '';
+
+              // Status-aware action button. For underperforming teams, prefill a
+              // concerned message to the POC; for healthy teams, a thank-you.
+              let actionBtn = '';
+              if (pocWa) {
+                if (st.cls === 'bad' || st.cls === 'warn') {
+                  const msg = `Hey ${r.poc || 'team'}, saw deployment for ${r.factory} ${r.shift === 'night' ? '(night shift)' : ''} at ${rt.toFixed(0)}% today. Anything blocking you that we can help with? Let's talk.`;
+                  actionBtn = `<a href="${waLink(r.phone, msg)}" target="_blank" rel="noopener" class="chip warn" style="margin-left:6px;text-decoration:none;">✉ Talk</a>`;
+                } else if (st.cls === 'good') {
+                  const msg = `${r.poc || 'Team'}, strong run on ${r.factory} today — ${fmt(r.deployed)} of ${fmt(r.available)} deployed (${rt.toFixed(0)}%). Keep it up, please pass this on to the crew.`;
+                  actionBtn = `<a href="${waLink(r.phone, msg)}" target="_blank" rel="noopener" class="chip good" style="margin-left:6px;text-decoration:none;">✓ Thank</a>`;
+                }
+              }
+
               return `<tr title="${r.notes ? r.notes.replace(/"/g,'') : ''}">
-                <td class="loc">${r.location}${r.location_code ? ' <span style="color:var(--sub);font-weight:400;">· ' + r.location_code + '</span>' : ''}</td>
-                <td class="fact">${r.factory}</td>
-                <td class="fact">${r.team || ''}</td>
-                <td class="fact">${r.poc || ''}</td>
+                <td class="loc">${r.factory || '—'}</td>
+                <td class="fact">${r.location || ''}${r.location_code ? ' <span style="color:var(--sub);">· ' + r.location_code + '</span>' : ''}</td>
+                <td class="fact">${teamCell}</td>
+                <td class="fact">${pocCell}</td>
                 <td class="fact">${r.shift}${r.shiftTime ? ' <span style="color:var(--sub);">· ' + r.shiftTime + '</span>' : ''}</td>
                 <td class="num">${r.ops}</td>
                 <td class="num">${fmt(r.deployed)} / ${fmt(r.available)}</td>
@@ -549,7 +599,7 @@ function renderDay() {
                 <td class="num">${fmt(r.sd)}</td>
                 <td class="num" style="color: var(--muted);">${ghA}</td>
                 <td class="num" style="color: var(--muted);">${ghP}</td>
-                <td><span class="chip ${st.cls}">${st.label}</span></td>
+                <td><span class="chip ${st.cls}">${st.label}</span>${actionBtn}</td>
               </tr>`;
             }).join('')}
           </tbody>
