@@ -583,19 +583,9 @@
             <input type="email" name="email" id="f-email" placeholder="you@domain.com" required />
           </div>
         </div>
-        <div class="row2">
-          <div class="field">
-            <label>Alt Email <span class="opt">optional</span></label>
-            <input type="email" name="alt_email" />
-          </div>
-          <div class="field">
-            <label>Occupation</label>
-            <select name="occupation" required>
-              <option value="">select</option>
-              <option>@ Organization</option>
-              <option>Independent</option>
-            </select>
-          </div>
+        <div class="field">
+          <label>Alt Email <span class="opt">optional</span></label>
+          <input type="email" name="alt_email" />
         </div>
       </div>
     </section>
@@ -1136,7 +1126,7 @@ document.getElementById('onboarding-form').addEventListener('submit', async (e) 
   fd.append('alt_email', cleanLowerEmail(get('alt_email')));
   // Trim everything else
   const trimFields = [
-    'full_name', 'occupation', 'google_id',
+    'full_name', 'google_id',
     'telegram_id', 'discord_id', 'twitter_id', 'referred_by',
     'hardest_problem', 'health_notes',
     'address_line1', 'address_line2', 'city', 'state',
