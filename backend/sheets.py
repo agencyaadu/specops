@@ -74,10 +74,14 @@ def ensure_header() -> None:
 def append_row(d: dict) -> None:
     svc = _service()
     sid = _sheet_id()
+    # range="Sheet1!A:AE" + insertDataOption=OVERWRITE makes Google scan the
+    # whole column range, find the last non-empty row of the table, and write
+    # the new row immediately after it. Using range="A1" + INSERT_ROWS causes
+    # the row to be inserted right after A1 (i.e. at row 2), pushing data down.
     svc.spreadsheets().values().append(
-        spreadsheetId=sid, range="A1",
+        spreadsheetId=sid, range="Sheet1!A:AE",
         valueInputOption="RAW",
-        insertDataOption="INSERT_ROWS",
+        insertDataOption="OVERWRITE",
         body={"values": [_to_row(d)]},
     ).execute()
 
