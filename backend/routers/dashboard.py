@@ -150,6 +150,140 @@ async def dashboard(
     }
 
 
+@router.get("/range")
+async def dashboard_range(
+    request: Request,
+    from_: str = Query(..., alias="from"),
+    to:    str = Query(...),
+    claims: dict = Depends(dashboard_roles),
+):
+    """Return /api/dashboard payloads for every date in [from, to].
+
+    Collapses the analytics page's previous Promise.all of 14 per-date calls
+    into a single SQL query using generate_series. Capped at 90 days to keep
+    payload size sensible.
+    """
+    d_from = _parse_date(from_)
+    d_to   = _parse_date(to)
+    if d_from > d_to:
+        d_from, d_to = d_to, d_from
+    span_days = (d_to - d_from).days + 1
+    if span_days > 90:
+        raise HTTPException(400, "range may not exceed 90 days")
+
+    db = request.app.state.db
+    role = claims["role"]
+    email = (claims.get("email") or "").lower()
+
+    # Same scope logic as /api/dashboard, but we build the SQL with numbered
+    # params so from/to come after the email (if any).
+    if role in ("freddy", "general", "viewer"):
+        scope_join = ""
+        params: list = []
+    else:
+        scope_join = "JOIN op_assignments asn ON asn.op_id = o.op_id AND asn.email = $1"
+        params = [email]
+
+    from_idx = len(params) + 1   # $1 if admin, $2 if chief
+    to_idx   = len(params) + 2
+    params.extend([d_from, d_to])
+
+    sql = f"""
+        SELECT
+          d.day::date               AS report_date,
+          o.op_id, o.factory_name, o.shift, o.location, o.sales_team_name,
+          o.poc1_name, o.poc1_phone, o.is_active, o.whatsapp_group_url,
+          r.id                      AS report_id,
+          r.submitted_at,
+          r.submitted_by_email,
+          r.chiefs, r.captains, r.operators,
+          r.sd_cards_used, r.sd_cards_left,
+          r.devices_available, r.devices_deployed, r.devices_lost, r.devices_recovered,
+          r.good_hours_projected, r.good_hours_actual,
+          r.actual_reporting_time, r.time_leaving,
+          COALESCE(ac.attendance_count, 0) AS attendance_count,
+          COALESCE(ac.verified_count, 0)   AS verified_count
+        FROM generate_series(${from_idx}::date, ${to_idx}::date, '1 day'::interval) AS d(day)
+        CROSS JOIN operations o
+        {scope_join}
+        LEFT JOIN daily_reports r
+               ON r.op_id = o.op_id AND r.report_date = d.day
+        LEFT JOIN (
+            SELECT op_id, report_date,
+                   COUNT(*)                         AS attendance_count,
+                   COUNT(*) FILTER (WHERE verified) AS verified_count
+              FROM attendance
+             WHERE report_date BETWEEN ${from_idx}::date AND ${to_idx}::date
+             GROUP BY op_id, report_date
+        ) ac ON ac.op_id = o.op_id AND ac.report_date = d.day
+        ORDER BY d.day, o.factory_name, o.shift
+    """
+    rows = await db.fetch(sql, *params)
+
+    def _fmt_time(v):
+        return v.strftime("%H:%M") if v is not None and hasattr(v, "strftime") else (v if v is None else str(v))
+
+    # Bucket rows by date into the same shape /api/dashboard returns so the
+    # frontend can reuse its flattenDashboard function unchanged.
+    by_date: dict[str, dict] = {}
+    for r in rows:
+        day_iso = r["report_date"].isoformat() if hasattr(r["report_date"], "isoformat") else str(r["report_date"])
+        bucket = by_date.setdefault(day_iso, {"date": day_iso, "summary": None, "ops": [],
+                                               "_submitted": 0, "_pending": 0, "_att": 0, "_ver": 0})
+        has_report = r["report_id"] is not None
+        attc = int(r["attendance_count"] or 0)
+        verc = int(r["verified_count"] or 0)
+        if has_report:           bucket["_submitted"] += 1
+        elif r["is_active"]:     bucket["_pending"]   += 1
+        bucket["_att"] += attc
+        bucket["_ver"] += verc
+        bucket["ops"].append({
+            "op_id":             r["op_id"],
+            "factory_name":      r["factory_name"],
+            "shift":             r["shift"],
+            "location":          r["location"],
+            "sales_team_name":   r["sales_team_name"],
+            "poc1_name":         r["poc1_name"],
+            "poc1_phone":        r["poc1_phone"],
+            "is_active":         r["is_active"],
+            "whatsapp_group_url":r["whatsapp_group_url"],
+            "submitted":         has_report,
+            "attendance_count":  attc,
+            "verified_count":    verc,
+            "report": None if not has_report else {
+                "submitted_at":         r["submitted_at"].astimezone(IST).isoformat() if r["submitted_at"] else None,
+                "submitted_by_email":   r["submitted_by_email"],
+                "chiefs":               r["chiefs"],
+                "captains":             r["captains"],
+                "operators":            r["operators"],
+                "sd_cards_used":        r["sd_cards_used"],
+                "sd_cards_left":        r["sd_cards_left"],
+                "devices_available":    r["devices_available"],
+                "devices_deployed":     r["devices_deployed"],
+                "devices_lost":         r["devices_lost"],
+                "devices_recovered":    r["devices_recovered"],
+                "good_hours_projected": float(r["good_hours_projected"]) if r["good_hours_projected"] is not None else None,
+                "good_hours_actual":    float(r["good_hours_actual"])    if r["good_hours_actual"]    is not None else None,
+                "actual_reporting_time":_fmt_time(r["actual_reporting_time"]),
+                "time_leaving":         _fmt_time(r["time_leaving"]),
+            },
+        })
+
+    days = []
+    for day in sorted(by_date.keys()):
+        b = by_date[day]
+        b["summary"] = {
+            "total_ops":         len(b["ops"]),
+            "ops_submitted":     b.pop("_submitted"),
+            "ops_pending":       b.pop("_pending"),
+            "total_attendance":  b.pop("_att"),
+            "verified_attendance": b.pop("_ver"),
+        }
+        days.append(b)
+
+    return {"from": d_from.isoformat(), "to": d_to.isoformat(), "days": days}
+
+
 @router.get("/attendance")
 async def attendance_list(
     request: Request,

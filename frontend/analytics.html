@@ -344,34 +344,31 @@ async function loadFromBackend(fromDate, toDate) {
   const days = daysBetween(fromDate, toDate) + 1;
   if (days <= 0 || days > 90) { showBanner("err", "Pick a range between 1 and 90 days."); return; }
 
-  const dates = [];
-  for (let i = 0; i < days; i++) dates.push(addDays(fromDate, i));
+  // One round-trip for the whole window instead of N parallel /api/dashboard calls.
+  let res;
+  try {
+    res = await fetch(API + "/api/dashboard/range?from=" + encodeURIComponent(fromDate) + "&to=" + encodeURIComponent(toDate), { headers: authHdr() });
+  } catch (e) {
+    liveBadge.textContent = "Error"; liveBadge.classList.remove("live");
+    showBanner("err", "Network error: " + e.message);
+    return;
+  }
+  if (res.status === 401) { localStorage.removeItem(TOKEN_K); redirectToLogin(); return; }
+  if (!res.ok) {
+    liveBadge.textContent = "Error"; liveBadge.classList.remove("live");
+    const j = await res.json().catch(() => ({}));
+    showBanner("err", "Backend error " + res.status + (j.detail ? ": " + j.detail : ""));
+    return;
+  }
+  const body = await res.json();
 
   const out = [];
-  let firstError = null;
-  // Parallel fetches - 30-day windows finish in <2s over wifi even on Render.
-  const results = await Promise.all(dates.map(async d => {
-    try {
-      const res = await fetch(API + "/api/dashboard?date=" + encodeURIComponent(d), { headers: authHdr() });
-      if (res.status === 401) return { err: 401, d };
-      if (!res.ok) return { err: res.status, d };
-      return { ok: true, d, json: await res.json() };
-    } catch (e) {
-      return { err: e.message, d };
-    }
-  }));
-
-  for (const r of results) {
-    if (r.ok) out.push(...flattenDashboard(r.json));
-    else if (!firstError) firstError = r;
-  }
-
-  if (firstError && firstError.err === 401) { localStorage.removeItem(TOKEN_K); redirectToLogin(); return; }
+  for (const day of (body.days || [])) out.push(...flattenDashboard(day));
 
   STATE = out;
   if (!STATE.length) {
     liveBadge.textContent = "No Data"; liveBadge.classList.remove("live");
-    showBanner("err", firstError ? `Backend error ${firstError.err} on ${firstError.d}.` : `No reports in this range.`);
+    showBanner("err", "No reports in this range.");
   } else {
     liveBadge.textContent = "Live"; liveBadge.classList.add("live");
     hideBanner();
