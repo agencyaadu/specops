@@ -698,24 +698,24 @@
       <div class="card-body">
         <div class="row2">
           <div class="field">
-            <label>PAN Card</label>
+            <label>Govt ID</label>
             <div class="upload-box" id="pan-box" onclick="document.getElementById('pan-file').click()">
               <p>Drop or click to upload</p>
-              <p class="sub">image / pdf &middot; max 2mb</p>
+              <p class="sub">image / pdf &middot; images auto-compressed under 2mb</p>
               <p class="fname" id="pan-fname"></p>
               <input type="file" id="pan-file" name="pan_card" accept="image/*,.pdf" onchange="showFile(this,'pan-box','pan-fname')" required />
             </div>
           </div>
           <div class="field">
-            <label>PAN Number <span class="enc">encrypted</span></label>
-            <input type="text" name="pan_number" placeholder="ABCDE1234F" maxlength="10" pattern="[A-Za-z]{5}[0-9]{4}[A-Za-z]" style="text-transform:uppercase" required />
-            <p class="hint">stored encrypted &middot; AES-256</p>
+            <label>Govt ID Number <span class="enc">encrypted</span></label>
+            <input type="text" name="pan_number" id="f-pan" placeholder="PAN or Aadhaar number" maxlength="14" style="text-transform:uppercase" required />
+            <p class="hint">PAN (10 chars) or Aadhaar (12 digits) &middot; stored encrypted, AES-256</p>
           </div>
         </div>
         <div class="field" style="margin-top:1.1rem">
           <label>Intro Video URL</label>
           <input type="url" name="video_url" placeholder="YouTube, Loom, Drive, or any public link" required />
-          <p class="hint">public link to your 3-minute intro</p>
+          <p class="hint">any public http(s) link to your 3-minute intro</p>
         </div>
       </div>
     </section>
@@ -726,7 +726,7 @@
       <div class="card-body">
         <div class="consent-row">
           <input type="checkbox" name="consented" id="consent" value="true" />
-          <p>I consent to my PAN and financial details being collected and stored in encrypted form for KYC and payment processing purposes.</p>
+          <p>I consent to my Govt ID and financial details being collected and stored in encrypted form for KYC and payment processing purposes.</p>
         </div>
         <div class="consent-row">
           <input type="checkbox" name="consented_terms" id="consent-terms" value="true" />
@@ -864,12 +864,83 @@ document.getElementById('lang-grid').addEventListener('change', (e) => {
   document.getElementById('languages-hidden').value = checked.join(',');
 });
 
-/* --- upload file label --- */
-function showFile(input, boxId, fnameId) {
+/* --- upload file label + auto-compress oversized images --- */
+const ID_MAX_BYTES = 2 * 1024 * 1024;
+
+function fmtSize(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1024 * 1024) return (b / 1024).toFixed(0) + ' KB';
+  return (b / (1024 * 1024)).toFixed(2) + ' MB';
+}
+
+/*
+ * Re-render an image to a JPEG under maxBytes. Strategy:
+ *   1) downscale the longest side to <= 2400px (most ID phone snaps are way bigger)
+ *   2) drop JPEG quality from 0.92 in 0.1 steps until under the cap
+ *   3) if still too big, scale the canvas itself down by 15% per pass
+ * Returns a File so FormData treats it like the original input.
+ */
+async function compressImage(file, maxBytes) {
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+  URL.revokeObjectURL(url);
+
+  let w = img.naturalWidth, h = img.naturalHeight;
+  const MAX_DIM = 2400;
+  if (Math.max(w, h) > MAX_DIM) {
+    const s = MAX_DIM / Math.max(w, h);
+    w = Math.round(w * s); h = Math.round(h * s);
+  }
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  function draw() {
+    canvas.width = w; canvas.height = h;
+    ctx.fillStyle = '#fff';        // flatten transparency for JPEG
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+  }
+  function toBlob(q) { return new Promise(res => canvas.toBlob(res, 'image/jpeg', q)); }
+
+  draw();
+  let q = 0.92, blob = await toBlob(q);
+  while (blob && blob.size > maxBytes && q > 0.45) { q -= 0.1; blob = await toBlob(q); }
+  while (blob && blob.size > maxBytes && Math.max(w, h) > 600) {
+    w = Math.round(w * 0.85); h = Math.round(h * 0.85);
+    draw(); blob = await toBlob(q);
+  }
+  if (!blob) throw new Error('encode failed');
+  if (blob.size > maxBytes) throw new Error('still too large after compression');
+
+  const stem = (file.name || 'id').replace(/\.[^.]+$/, '');
+  return new File([blob], stem + '.jpg', { type: 'image/jpeg', lastModified: Date.now() });
+}
+
+async function showFile(input, boxId, fnameId) {
   const f = input.files[0];
   if (!f) return;
   document.getElementById(boxId).classList.add('has-file');
-  document.getElementById(fnameId).textContent = f.name;
+  const fnameEl = document.getElementById(fnameId);
+  fnameEl.textContent = f.name + ' (' + fmtSize(f.size) + ')';
+
+  // PDFs (and small images) pass through unchanged.
+  if (f.size <= ID_MAX_BYTES) return;
+  if (!f.type.startsWith('image/')) {
+    fnameEl.textContent = f.name + ' · ' + fmtSize(f.size) + ' (over 2 MB — PDF cannot be auto-compressed)';
+    return;
+  }
+
+  fnameEl.textContent = f.name + ' · ' + fmtSize(f.size) + ' → compressing…';
+  try {
+    const out = await compressImage(f, ID_MAX_BYTES);
+    const dt = new DataTransfer();
+    dt.items.add(out);
+    input.files = dt.files;
+    fnameEl.textContent = out.name + ' (' + fmtSize(f.size) + ' → ' + fmtSize(out.size) + ')';
+  } catch (e) {
+    fnameEl.textContent = f.name + ' · compression failed: ' + e.message;
+  }
 }
 
 /* --- pincode autofill --- */
@@ -999,6 +1070,37 @@ function resetToForm() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+/* --- field cleaners (used both on blur for live feedback and at submit) --- */
+function cleanPhone(raw) {
+  if (!raw) return '';
+  let s = String(raw).replace(/[\s\-.()]+/g, '');
+  if (!s) return '';
+  if (s.startsWith('+')) return s;
+  s = s.replace(/^0+/, '');
+  if (/^91\d{10}$/.test(s)) return '+' + s;
+  return '+91' + s;
+}
+function cleanId(raw) { return String(raw || '').replace(/[\s.\-]+/g, '').toUpperCase(); }
+function cleanAccount(raw) { return String(raw || '').replace(/[\s.\-]+/g, ''); }
+function cleanIfsc(raw) { return String(raw || '').replace(/\s+/g, '').toUpperCase(); }
+function cleanPincode(raw) { return String(raw || '').replace(/\s+/g, ''); }
+function cleanLowerEmail(raw) { return String(raw || '').trim().toLowerCase(); }
+function trimAll(raw) { return String(raw || '').replace(/\s+/g, ' ').trim(); }
+
+/* Live blur cleanup: rewrite the visible value so the user sees the clean
+ * form before submitting. Keeps masked password fields alone. */
+function attachBlurClean(selector, fn) {
+  document.querySelectorAll(selector).forEach(el => {
+    el.addEventListener('blur', () => { el.value = fn(el.value); });
+  });
+}
+attachBlurClean('input[name="whatsapp"]', cleanPhone);
+attachBlurClean('input[name="pan_number"]', cleanId);
+attachBlurClean('input[name="ifsc_code"]', cleanIfsc);
+attachBlurClean('input[name="pincode"]', cleanPincode);
+attachBlurClean('input[name="email"], input[name="alt_email"]', cleanLowerEmail);
+attachBlurClean('input[name="account_number"]', cleanAccount);
+
 /* --- form submit --- */
 document.getElementById('onboarding-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -1015,13 +1117,47 @@ document.getElementById('onboarding-form').addEventListener('submit', async (e) 
     return;
   }
 
+  // Build a fresh FormData with all text fields normalised. The file input
+  // is copied through unchanged.
+  const form = e.target;
+  const fd = new FormData();
+  const get = (n) => form.elements[n] ? form.elements[n].value : '';
+
+  // Phone-format
+  fd.append('whatsapp', cleanPhone(get('whatsapp')));
+  // ID-format
+  fd.append('pan_number', cleanId(get('pan_number')));
+  // Account / IFSC / pincode
+  fd.append('account_number', cleanAccount(get('account_number')));
+  fd.append('ifsc_code',      cleanIfsc(get('ifsc_code')));
+  fd.append('pincode',        cleanPincode(get('pincode')));
+  // Emails: lowercase + trim
+  fd.append('email',     cleanLowerEmail(get('email')));
+  fd.append('alt_email', cleanLowerEmail(get('alt_email')));
+  // Trim everything else
+  const trimFields = [
+    'full_name', 'occupation', 'google_id',
+    'telegram_id', 'discord_id', 'twitter_id', 'referred_by',
+    'hardest_problem', 'health_notes',
+    'address_line1', 'address_line2', 'city', 'state',
+    'upi_id', 'beneficiary_name', 'bank_name', 'branch_name',
+    'video_url',
+  ];
+  for (const k of trimFields) fd.append(k, trimAll(get(k)));
+  // Pass-through values
+  fd.append('languages', get('languages'));
+  fd.append('consented', form.elements['consented'].checked ? 'true' : 'false');
+  fd.append('consented_terms', form.elements['consented_terms'].checked ? 'true' : 'false');
+  // File
+  const fileInput = document.getElementById('pan-file');
+  if (fileInput.files[0]) fd.append('pan_card', fileInput.files[0]);
+
   btn.disabled = true;
   const oldLabel = btn.textContent;
   btn.textContent = 'Submitting...';
   setLog('Uploading...', '');
 
   try {
-    const fd = new FormData(e.target);
     const res = await fetch(API + '/submit/', { method: 'POST', body: fd });
     const data = await res.json();
 

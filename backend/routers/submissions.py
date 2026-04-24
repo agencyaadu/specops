@@ -17,7 +17,8 @@ router = APIRouter()
 ALLOWED_DOC_TYPES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
 MAX_DOC_MB        = 2
 
-YOUTUBE_HOSTS = ("youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be")
+PAN_RE     = re.compile(r"^[A-Z]{5}[0-9]{4}[A-Z]$")
+AADHAAR_RE = re.compile(r"^\d{12}$")
 
 def _check_size(data: bytes, max_mb: int, label: str):
     if len(data) > max_mb * 1024 * 1024:
@@ -30,12 +31,40 @@ def _safe_filename(name: str, fallback_ext: str) -> str:
     ext  = re.sub(r"[^A-Za-z0-9.]+", "", ext) or fallback_ext
     return f"{stem[:64]}{ext}"
 
-def _validate_youtube_url(url: str) -> str:
-    url = url.strip()
-    m = re.match(r"^https?://([^/]+)/", url + "/")
-    if not m or m.group(1).lower() not in YOUTUBE_HOSTS:
-        raise HTTPException(400, "intro video must be a YouTube URL")
+def _validate_video_url(url: str) -> str:
+    url = (url or "").strip()
+    if not re.match(r"^https?://[^\s]+\.[^\s]+", url):
+        raise HTTPException(400, "intro video must be a public http(s) URL")
     return url
+
+def _normalize_id(raw: str) -> str:
+    """Strip whitespace, dots, dashes from PAN/Aadhaar; uppercase the result."""
+    return re.sub(r"[\s.\-]+", "", raw or "").upper()
+
+def _validate_pan_or_aadhaar(raw: str) -> str:
+    cleaned = _normalize_id(raw)
+    if PAN_RE.match(cleaned) or AADHAAR_RE.match(cleaned):
+        return cleaned
+    raise HTTPException(400, "ID must be a 10-character PAN (ABCDE1234F) or 12-digit Aadhaar")
+
+def _normalize_phone(raw: str) -> str:
+    """Strip spaces/dots/dashes/parens. Prepend +91 if no country code given.
+    Accepts a leading 0 (some users write 09876543210) and drops it."""
+    s = re.sub(r"[\s\-.()]+", "", raw or "")
+    if not s:
+        return s
+    if s.startswith("+"):
+        return s
+    s = re.sub(r"^0+", "", s)
+    if s.startswith("91") and len(s) == 12:
+        return "+" + s
+    return "+91" + s
+
+def _normalize_account(raw: str) -> str:
+    return re.sub(r"[\s.\-]+", "", raw or "")
+
+def _normalize_ifsc(raw: str) -> str:
+    return re.sub(r"\s+", "", raw or "").upper()
 
 async def _store(file_bytes: bytes, prefix: str, filename: str, mime: str, fallback_ext: str) -> str:
     key = f"{prefix}/{uuid.uuid4()}_{_safe_filename(filename, fallback_ext)}"
@@ -88,6 +117,33 @@ async def submit(
     if not lang_list:
         raise HTTPException(400, "pick at least one language")
 
+    # Normalise all incoming text fields so the DB row is clean regardless
+    # of how the client formatted them. The frontend cleans on submit too;
+    # this is the source-of-truth pass.
+    full_name        = (full_name or "").strip()
+    whatsapp         = _normalize_phone(whatsapp)
+    email            = (email or "").strip().lower()
+    alt_email        = (alt_email or "").strip().lower()
+    occupation       = (occupation or "").strip()
+    telegram_id      = (telegram_id or "").strip()
+    discord_id       = (discord_id or "").strip()
+    twitter_id       = (twitter_id or "").strip()
+    referred_by      = (referred_by or "").strip()
+    hardest_problem  = (hardest_problem or "").strip()
+    health_notes     = (health_notes or "").strip()
+    address_line1    = (address_line1 or "").strip()
+    address_line2    = (address_line2 or "").strip()
+    pincode          = re.sub(r"\s+", "", pincode or "")
+    city             = (city or "").strip()
+    state            = (state or "").strip()
+    upi_id           = re.sub(r"\s+", "", upi_id or "")
+    beneficiary_name = (beneficiary_name or "").strip()
+    account_number   = _normalize_account(account_number)
+    ifsc_code        = _normalize_ifsc(ifsc_code)
+    bank_name        = (bank_name or "").strip()
+    branch_name      = (branch_name or "").strip()
+    pan_number       = _validate_pan_or_aadhaar(pan_number)
+
     required_text = {
         "full_name": full_name, "whatsapp": whatsapp, "email": email, "occupation": occupation,
         "telegram_id": telegram_id, "discord_id": discord_id, "twitter_id": twitter_id,
@@ -97,19 +153,19 @@ async def submit(
         "ifsc_code": ifsc_code, "bank_name": bank_name, "branch_name": branch_name,
         "pan_number": pan_number, "video_url": video_url,
     }
-    missing = [k for k, v in required_text.items() if not v.strip()]
+    missing = [k for k, v in required_text.items() if not v]
     if missing:
         raise HTTPException(400, f"missing required fields: {', '.join(missing)}")
 
-    clean_video_url = _validate_youtube_url(video_url)
+    clean_video_url = _validate_video_url(video_url)
 
     if not pan_card.filename:
-        raise HTTPException(400, "PAN card file is required")
+        raise HTTPException(400, "ID card file is required")
     pan_bytes = await pan_card.read()
     mime = pan_card.content_type or "application/octet-stream"
     if mime not in ALLOWED_DOC_TYPES:
-        raise HTTPException(400, "PAN card must be image or PDF")
-    _check_size(pan_bytes, MAX_DOC_MB, "PAN card")
+        raise HTTPException(400, "ID card must be image or PDF")
+    _check_size(pan_bytes, MAX_DOC_MB, "ID card")
     pan_url = await _store(pan_bytes, "pan", pan_card.filename, mime, ".bin")
 
     db = request.app.state.db
