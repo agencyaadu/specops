@@ -304,7 +304,7 @@
   <div id="app" class="hidden">
     <div class="tabs">
       <div class="tab active" data-tab="ops">Operations</div>
-      <div class="tab" data-tab="chiefs">Roles</div>
+      <div class="tab admin-only" data-tab="chiefs">Roles</div>
     </div>
 
     <!-- =================== OPERATIONS TAB =================== -->
@@ -357,7 +357,7 @@
     </section>
 
     <!-- =================== ROLES TAB =================== -->
-    <section id="tab-chiefs" class="hidden">
+    <section id="tab-chiefs" class="hidden admin-only">
       <div class="card">
         <div class="card-head">
           <span><span style="color:var(--muted)">//</span>&nbsp; Add a Role</span>
@@ -742,12 +742,18 @@ function locationToCoord(loc) {
     if (!res.ok) return showBanner("err", "Auth check failed: " + res.status);
     const { user } = await res.json();
     if (user.role === "owner") user.role = "freddy";
-    if (!["freddy", "general"].includes(user.role)) {
+    if (!["freddy", "general", "chief"].includes(user.role)) {
       return showBanner("err",
-        `Signed in as ${user.email} (role: ${user.role || "none"}). Only Freddys and generals can access this page.`);
+        `Signed in as ${user.email} (role: ${user.role || "none"}). This page is for Freddys, generals, and chiefs.`);
     }
     whoEl.textContent = `${user.email} · ${user.role}`;
+    // .freddy-only -> only Freddys see it (e.g. add/remove other Freddys).
+    // .admin-only  -> only Freddys + generals see it (role mgmt tab, etc).
+    //                Chiefs are scoped by the backend (/api/ops returns only
+    //                their assigned ops; create/assign/edit endpoints check
+    //                op_assignments) so the surface naturally narrows for them.
     if (user.role !== "freddy") document.querySelectorAll(".freddy-only").forEach(el => el.remove());
+    if (!["freddy", "general"].includes(user.role)) document.querySelectorAll(".admin-only").forEach(el => el.remove());
     window._currentUserRole = user.role;
     appEl.classList.remove("hidden");
     drawIndiaOutline();

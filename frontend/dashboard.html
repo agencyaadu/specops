@@ -197,10 +197,9 @@
     }
     whoEl.textContent = `${user.email} · ${user.role}`;
 
-    // role-specific nav: link to analytics + back to admin
-    const adminHref = ["freddy","general"].includes(user.role) ? "/ops/general"
-                    : user.role === "chief" ? "/ops/chief"
-                    : null;
+    // Admin surface is unified at /ops/general - the page hides admin-only
+    // controls for chiefs based on role.
+    const adminHref = ["freddy","general","chief"].includes(user.role) ? "/ops/general" : null;
     nav.innerHTML = `
       <a href="/ops/analytics">Analytics</a>
       ${adminHref ? `<a href="${adminHref}">← Admin</a>` : ""}

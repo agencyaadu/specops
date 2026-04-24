@@ -23,7 +23,9 @@ REWRITES = [
     (re.compile(r"^/attendance/[^/]+/?$"), "/attendance.html"),
     (re.compile(r"^/ops/?$"),          "/ops.html"),
     (re.compile(r"^/ops/general/?$"),  "/ops-admin.html"),
-    (re.compile(r"^/ops/chief/?$"),    "/chief-admin.html"),
+    # /ops/chief is a permanent redirect to /ops/general on Vercel; in dev we
+    # rewrite it so older bookmarks still serve a working page.
+    (re.compile(r"^/ops/chief/?$"),    "/ops-admin.html"),
     (re.compile(r"^/ops/captain/?$"),  "/captain.html"),
     (re.compile(r"^/ops/dashboard/?$"),"/dashboard.html"),
     (re.compile(r"^/ops/analytics/?$"),"/analytics.html"),
@@ -31,7 +33,7 @@ REWRITES = [
 ]
 
 # Clean URL aliases (cleanUrls:true on Vercel) — let /onboard serve /onboard.html, etc.
-CLEAN_URL_CANDIDATES = ("onboard", "admin", "r", "ops", "ops-admin", "chief-admin", "captain", "dashboard", "analytics")
+CLEAN_URL_CANDIDATES = ("onboard", "admin", "r", "ops", "ops-admin", "captain", "dashboard", "analytics")
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
