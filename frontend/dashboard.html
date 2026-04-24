@@ -119,7 +119,7 @@
         <span id="pending-count" class="pill warn">0</span>
       </div>
       <div class="card-body" style="padding:14px 16px">
-        <a class="btn" href="/validate.html" id="pending-link">Review pending attendance →</a>
+        <a class="btn" href="/ops/validate" id="pending-link">Review pending attendance →</a>
       </div>
     </div>
 
@@ -197,11 +197,11 @@
     whoEl.textContent = `${user.email} · ${user.role}`;
 
     // role-specific nav: link to analytics + back to admin
-    const adminHref = ["freddy","general"].includes(user.role) ? "/ops-admin.html"
-                    : user.role === "chief" ? "/chief-admin.html"
+    const adminHref = ["freddy","general"].includes(user.role) ? "/ops/general"
+                    : user.role === "chief" ? "/ops/chief"
                     : null;
     nav.innerHTML = `
-      <a href="/analytics.html">Analytics</a>
+      <a href="/ops/analytics">Analytics</a>
       ${adminHref ? `<a href="${adminHref}">← Admin</a>` : ""}
     `;
 

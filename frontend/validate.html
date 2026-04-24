@@ -88,7 +88,7 @@
   <div class="topbar">
     <h1>// Validate Attendance</h1>
     <div class="meta">
-      <a class="btn tiny" id="back-link" href="/dashboard.html">← Back</a>
+      <a class="btn tiny" id="back-link" href="/ops/dashboard">← Back</a>
       <span id="who">-</span>
       <button class="btn tiny" id="signout">Sign out</button>
     </div>
@@ -165,7 +165,7 @@
       return showBanner("err", `Signed in as ${user.email} (role: ${user.role || "none"}). Validation is for captains, chiefs, and admins.`);
     }
     // Send captains back to captain.html, everyone else back to dashboard.
-    document.getElementById("back-link").href = user.role === "captain" ? "/captain.html" : "/dashboard.html";
+    document.getElementById("back-link").href = user.role === "captain" ? "/ops/captain" : "/ops/dashboard";
     whoEl.textContent = `${user.email} · ${user.role}`;
     appEl.classList.remove("hidden");
     await loadPending();

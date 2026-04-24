@@ -92,7 +92,7 @@
         <span id="pending-count" class="pill warn">0</span>
       </div>
       <div class="card-body">
-        <a class="btn" href="/validate.html">Review pending attendance →</a>
+        <a class="btn" href="/ops/validate">Review pending attendance →</a>
       </div>
     </section>
 
@@ -249,7 +249,7 @@
           </div>
           <div style="display:flex;align-items:center;gap:10px">
             <span class="pill ${pillCls}">${pillText}</span>
-            ${op.is_active ? `<a class="btn primary" href="/r/${encodeURIComponent(op.op_id)}">${op.already_submitted ? 'View / Edit' : 'Fill Report'}</a>` : ''}
+            ${op.is_active ? `<a class="btn primary" href="/report/${encodeURIComponent(op.op_id)}">${op.already_submitted ? 'View / Edit' : 'Fill Report'}</a>` : ''}
           </div>
         </div>
       `;
