@@ -14,7 +14,7 @@
  * licensed woff2 files.
  */
 
-@import url("https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@200;300;400;500;600;700&display=swap");
 @import url("https://fonts.cdnfonts.com/css/radnika-next");
 
 :root {
@@ -68,14 +68,20 @@ html[data-theme="light"] {
 body { font-family: var(--anthropic-sans); }
 input, select, textarea, button { font-family: inherit; }
 
-/* headings + hero/welcome text in the serif, for Anthropic-feel emphasis */
+/* Global title styling: Radnika Next, thin weight, uppercase with a little
+ * tracking. `!important` beats per-page h1/h2 rules that otherwise win on
+ * specificity (e.g. .topbar h1, .hero h1). Buttons and small labels keep
+ * their own tracking/transforms because they don't match these selectors. */
 h1, h2, h3,
 .hero h1,
 .welcome-greeting,
 .welcome-hero,
-.drawer h2 {
-  font-family: var(--anthropic-serif);
-  letter-spacing: 0;
+.drawer h2,
+.card-head {
+  font-family: var(--anthropic-serif) !important;
+  font-weight: 300 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
 }
 
 /* Floating theme toggle; lives bottom-right, out of the way. */
