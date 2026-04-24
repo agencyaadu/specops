@@ -139,13 +139,34 @@ CREATE TABLE IF NOT EXISTS attendance (
     distance_m        NUMERIC ,
     verified          BOOLEAN DEFAULT TRUE ,
     submitted_at      TIMESTAMPTZ DEFAULT NOW() ,
+    submitted_by_email TEXT ,
+    status            TEXT NOT NULL DEFAULT 'confirmed' CHECK (status IN ('pending','confirmed','rejected')) ,
+    validator_role    TEXT CHECK (validator_role IN ('chief','captain')) ,
+    confirmed_by_email TEXT ,
+    confirmed_at      TIMESTAMPTZ ,
+    rejected_by_email TEXT ,
+    rejected_at       TIMESTAMPTZ ,
+    reject_reason     TEXT ,
     UNIQUE (op_id, report_date, pan_number_hash)
 );
 ALTER TABLE attendance ALTER COLUMN photo_key DROP NOT NULL;
 ALTER TABLE attendance ADD COLUMN IF NOT EXISTS browser_accuracy_m NUMERIC;
 ALTER TABLE attendance ALTER COLUMN browser_lat SET NOT NULL;
 ALTER TABLE attendance ALTER COLUMN browser_lng SET NOT NULL;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS submitted_by_email TEXT;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'confirmed';
+ALTER TABLE attendance DROP CONSTRAINT IF EXISTS attendance_status_check;
+ALTER TABLE attendance ADD CONSTRAINT attendance_status_check CHECK (status IN ('pending','confirmed','rejected'));
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS validator_role TEXT;
+ALTER TABLE attendance DROP CONSTRAINT IF EXISTS attendance_validator_role_check;
+ALTER TABLE attendance ADD CONSTRAINT attendance_validator_role_check CHECK (validator_role IS NULL OR validator_role IN ('chief','captain'));
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS confirmed_by_email TEXT;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS confirmed_at TIMESTAMPTZ;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS rejected_by_email TEXT;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMPTZ;
+ALTER TABLE attendance ADD COLUMN IF NOT EXISTS reject_reason TEXT;
 CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance(report_date);
+CREATE INDEX IF NOT EXISTS idx_attendance_pending ON attendance(op_id, status) WHERE status = 'pending';
 """
 
 CREATE_BOT_ROLES = """
@@ -185,6 +206,28 @@ CREATE TABLE IF NOT EXISTS op_assignments (
 CREATE INDEX IF NOT EXISTS idx_op_assignments_email ON op_assignments(email);
 """
 
+CREATE_PERSON_ASSIGNMENTS = """
+CREATE TABLE IF NOT EXISTS person_assignments (
+    id                       BIGSERIAL PRIMARY KEY ,
+    email                    TEXT NOT NULL ,
+    assignment_date          DATE NOT NULL ,
+    op_id                    TEXT REFERENCES operations(op_id) ON DELETE SET NULL ,
+    role                     TEXT NOT NULL CHECK (role IN ('operator','captain','chief')) ,
+    reports_to_chief_email   TEXT ,
+    notes                    TEXT ,
+    -- 'self'       = the person filled the update form
+    -- 'attendance' = derived from a chief/captain attendance submission
+    -- 'admin'      = freddy/general manually set it
+    source                   TEXT NOT NULL DEFAULT 'self' CHECK (source IN ('self','attendance','admin')) ,
+    created_at               TIMESTAMPTZ DEFAULT NOW() ,
+    UNIQUE (email, assignment_date, source)
+);
+CREATE INDEX IF NOT EXISTS idx_person_assignments_email_date
+    ON person_assignments(email, assignment_date DESC);
+CREATE INDEX IF NOT EXISTS idx_person_assignments_op_date
+    ON person_assignments(op_id, assignment_date DESC);
+"""
+
 ALL_DDL = [
     CREATE_SUBMISSIONS,
     CREATE_OPERATIONS,
@@ -194,6 +237,7 @@ ALL_DDL = [
     CREATE_ATTENDANCE,
     CREATE_OP_ASSIGNMENTS,
     CREATE_NOTES,
+    CREATE_PERSON_ASSIGNMENTS,
 ]
 
 async def init_db(pool: asyncpg.Pool):

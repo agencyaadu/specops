@@ -46,6 +46,7 @@
     border:1px solid var(--border-md); background:transparent; color:var(--text);
     padding:10px 18px; font-family:var(--mono); font-size:11px; letter-spacing:.16em;
     text-transform:uppercase; cursor:pointer; transition:background .12s, border-color .12s;
+    text-decoration:none; display:inline-block;
   }
   .btn:hover { border-color:var(--accent); background:var(--surface); }
   .btn.primary { background:var(--accent); color:var(--on-accent); border-color:var(--accent); }
@@ -69,6 +70,7 @@
   .banner { padding:14px 16px; border:1px solid var(--border); margin-bottom:1rem; font-size:12px; }
   .banner.err { border-color:var(--red); color:var(--red); }
   .banner.ok { border-color:var(--green); color:var(--green); background:var(--green-soft); }
+  .banner.warn { border-color:var(--amber); color:var(--amber); }
   .hidden { display:none; }
   .hint { font-size:11px; color:var(--hint); margin-top:4px; }
   .sub-label { font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--hint); margin:1.2rem 0 .8rem; padding-bottom:6px; border-bottom:1px solid var(--border); }
@@ -86,6 +88,24 @@
   </div>
 
   <div class="quick-nav hidden" id="quick-nav" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1rem"></div>
+
+  <!-- Op + date selector - always visible so users can switch without reloading. -->
+  <section class="card" id="selector-card">
+    <div class="card-head"><span><span class="slash">//</span>&nbsp; Select Report</span><span class="tag">00</span></div>
+    <div class="card-body">
+      <div class="row2">
+        <div class="field">
+          <label>Operation</label>
+          <select id="sel-op"><option value="">Loading...</option></select>
+        </div>
+        <div class="field">
+          <label>Report date</label>
+          <input type="date" id="sel-date" />
+          <div class="hint" id="sel-date-hint"></div>
+        </div>
+      </div>
+    </div>
+  </section>
 
   <div id="status-banner" class="hidden"></div>
 
@@ -163,16 +183,31 @@
 (function () {
   const API      = window.BACKEND_URL;
   const TOKEN_K  = "spec_token";
-  // op_id comes from the path (vercel rewrites /r/:op_id -> /r.html), or ?op= for local dev.
+  // op_id may come from the path (vercel rewrites /r/:op_id -> /r.html) or ?op= for
+  // deep links, but the user can also switch via the dropdown. Treat URL opId as
+  // just the initial selection.
   let opId = location.pathname.replace(/\/+$/,"").split("/").pop();
   if (!opId || opId === "r" || opId === "r.html") {
     opId = new URLSearchParams(location.search).get("op") || "";
   }
+  let selectedDate = "";                // yyyy-mm-dd, empty = let server default
+  let currentCtx   = null;              // last op context returned by the server
+  let loadToken    = 0;                 // guards against out-of-order loads on quick changes
+  let restoringDraft = false;           // suppresses draft-save while we're rehydrating the DOM
+  let hasUnsavedText = false;           // powers the beforeunload warning
+  let saveTimer = null;                 // debounce handle for writes to localStorage
+
+  const DRAFT_PREFIX = "spec_draft:";
+  const DRAFT_KEEP_DAYS = 14;           // TTL - older drafts get purged on load
+
   const meta     = document.getElementById("meta");
   const banner   = document.getElementById("status-banner");
   const appEl    = document.getElementById("app");
+  const selOp    = document.getElementById("sel-op");
+  const selDate  = document.getElementById("sel-date");
+  const selHint  = document.getElementById("sel-date-hint");
 
-  meta.textContent = opId;
+  meta.textContent = opId || "-";
 
   // Grab token from ?token= and stash it, clean URL.
   (function captureToken() {
@@ -198,34 +233,291 @@
     banner.textContent = msg;
     banner.classList.remove("hidden");
   }
+  function hideBanner() { banner.className = "banner hidden"; banner.textContent = ""; }
 
-  async function loadContext() {
+  function resetFormState() {
+    // Form should reset whenever op or date changes - otherwise stale people/events
+    // from a previous selection get submitted against the new op/date.
+    appEl.classList.add("hidden");
+    document.getElementById("people").innerHTML = "";
+    document.getElementById("events").innerHTML = "";
+    document.querySelectorAll("#app input, #app select, #app textarea").forEach(el => {
+      if (el.type === "checkbox" || el.type === "radio") el.checked = false;
+      else if (el.tagName === "SELECT") el.selectedIndex = 0;
+      else el.value = "";
+    });
+    personCounter = 0;
+    hasUnsavedText = false;
+  }
+
+  // ---------- Draft autosave ----------
+  // We snapshot every text/select value and any attendance metadata we can safely
+  // serialize. Photos are File objects and cannot be stashed in localStorage, so
+  // restored people with prior photos show a "re-attach photo" hint.
+  function draftKey(op, d) { return DRAFT_PREFIX + (op || "_") + ":" + (d || "today"); }
+
+  function purgeOldDrafts() {
+    const cutoff = Date.now() - DRAFT_KEEP_DAYS * 86400000;
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (!k || !k.startsWith(DRAFT_PREFIX)) continue;
+      try {
+        const v = JSON.parse(localStorage.getItem(k) || "{}");
+        if (!v.saved_at || new Date(v.saved_at).getTime() < cutoff) localStorage.removeItem(k);
+      } catch (_) { localStorage.removeItem(k); }
+    }
+  }
+
+  function snapshotForm() {
+    const daily = {};
+    ["d-chiefs","d-captains","d-operators","d-sd-used","d-sd-left",
+     "d-dev-avail","d-dev-dep","d-dev-lost","d-dev-rec",
+     "d-gh-proj","d-gh-act","d-art","d-tl"].forEach(id => {
+      daily[id] = document.getElementById(id)?.value ?? "";
+    });
+    const events = [...document.querySelectorAll(".event-row")].map(r => ({
+      ts: r.querySelector(".ev-ts")?.value || "",
+      note: r.querySelector(".ev-note")?.value || "",
+    }));
+    const people = [...document.querySelectorAll(".person")].map(p => ({
+      name:  p.querySelector(".p-name")?.value  || "",
+      phone: p.querySelector(".p-phone")?.value || "",
+      pan:   p.querySelector(".p-pan")?.value   || "",
+      role:  p.querySelector(".p-role")?.value  || "operator",
+      br_lat: p.dataset.brLat || "",
+      br_lng: p.dataset.brLng || "",
+      br_acc: p.dataset.brAcc || "",
+      had_photo: !!p.querySelector(".p-photo")?.files?.[0] || p.dataset.hadPhoto === "1",
+    }));
+    return { daily, events, people };
+  }
+
+  function hasAnyContent(snap) {
+    if (!snap) return false;
+    if (Object.values(snap.daily || {}).some(v => v && String(v).trim())) return true;
+    if ((snap.events || []).some(e => (e.ts && e.ts.trim()) || (e.note && e.note.trim()))) return true;
+    if ((snap.people || []).some(p => p.name || p.phone || p.pan)) return true;
+    return false;
+  }
+
+  function saveDraftNow() {
+    if (restoringDraft || !opId) return;
+    const snap = snapshotForm();
+    const key = draftKey(opId, selectedDate);
+    if (!hasAnyContent(snap)) {
+      // Empty form - drop any stale draft so we don't nag on reload.
+      localStorage.removeItem(key);
+      hasUnsavedText = false;
+      return;
+    }
+    try {
+      localStorage.setItem(key, JSON.stringify({
+        op_id: opId,
+        report_date: selectedDate || null,
+        saved_at: new Date().toISOString(),
+        ...snap,
+      }));
+      hasUnsavedText = true;
+    } catch (e) {
+      // Quota exceeded is the likely failure - just log and move on.
+      console.warn("draft save failed:", e);
+    }
+  }
+
+  function scheduleDraftSave() {
+    if (restoringDraft) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveDraftNow, 500);
+  }
+
+  function clearDraft(op, d) {
+    localStorage.removeItem(draftKey(op, d));
+    hasUnsavedText = false;
+  }
+
+  function loadDraft() {
+    try {
+      const raw = localStorage.getItem(draftKey(opId, selectedDate));
+      return raw ? JSON.parse(raw) : null;
+    } catch (_) { return null; }
+  }
+
+  function restoreDraft(draft) {
+    // Best-effort rehydration: run after addPerson() has cleared the default row.
+    restoringDraft = true;
+    try {
+      // Daily fields.
+      Object.entries(draft.daily || {}).forEach(([id, v]) => {
+        const el = document.getElementById(id);
+        if (el) el.value = v || "";
+      });
+      // Events.
+      document.getElementById("events").innerHTML = "";
+      (draft.events || []).forEach(ev => {
+        addEvent();
+        const rows = document.querySelectorAll(".event-row");
+        const r = rows[rows.length - 1];
+        r.querySelector(".ev-ts").value   = ev.ts   || "";
+        r.querySelector(".ev-note").value = ev.note || "";
+      });
+      // People.
+      document.getElementById("people").innerHTML = "";
+      personCounter = 0;
+      (draft.people || []).forEach(p => {
+        addPerson();
+        const persons = document.querySelectorAll(".person");
+        const el = persons[persons.length - 1];
+        el.querySelector(".p-name").value  = p.name  || "";
+        el.querySelector(".p-phone").value = p.phone || "";
+        el.querySelector(".p-pan").value   = p.pan   || "";
+        el.querySelector(".p-role").value  = p.role  || "operator";
+        if (p.br_lat && p.br_lng) {
+          // Keep the previously captured coords so the user doesn't have to re-grant
+          // location permission for every restored person. captureLocation (running
+          // async from addPerson) may overwrite these if it succeeds - that's fine.
+          el.dataset.brLat = p.br_lat;
+          el.dataset.brLng = p.br_lng;
+          el.dataset.brAcc = p.br_acc || "";
+          const badge = el.querySelector(".loc-badge");
+          badge.classList.add("ok");
+          badge.textContent = `✓ ${Number(p.br_lat).toFixed(5)}, ${Number(p.br_lng).toFixed(5)} (restored)`;
+        }
+        if (p.had_photo) {
+          // Tag the row so snapshotForm remembers a photo was needed; show a hint.
+          el.dataset.hadPhoto = "1";
+          const badge = el.querySelector(".photo-badge");
+          badge.style.display = "inline-block";
+          badge.className = "badge photo-badge warn";
+          badge.textContent = "re-attach photo (draft restored)";
+        }
+      });
+      if (personCounter === 0) addPerson();
+    } finally {
+      restoringDraft = false;
+    }
+    hasUnsavedText = hasAnyContent(draft);
+  }
+
+  // Capture any input/change anywhere in the form so the debounced save catches it.
+  document.addEventListener("input", (e) => {
+    if (e.target.closest("#app") || e.target.closest(".person") || e.target.closest(".event-row")) {
+      scheduleDraftSave();
+    }
+  });
+  document.addEventListener("change", (e) => {
+    if (e.target.closest("#app") || e.target.closest(".person") || e.target.closest(".event-row")) {
+      scheduleDraftSave();
+    }
+  });
+
+  // Warn before leaving if there's unsaved text. Modern browsers show a generic
+  // prompt regardless of the returned string.
+  window.addEventListener("beforeunload", (e) => {
+    if (hasUnsavedText) { e.preventDefault(); e.returnValue = ""; }
+  });
+
+  purgeOldDrafts();
+
+  async function loadOpList() {
     if (!token()) return redirectToLogin();
     let res;
     try {
-      res = await fetch(API + "/api/op/" + encodeURIComponent(opId), {
+      res = await fetch(API + "/api/ops", {
         headers: { Authorization: "Bearer " + token() },
       });
     } catch (e) { return showBanner("err", "Network error: " + e.message); }
-
     if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
     if (res.status === 403) { return showBanner("err", "This account is not authorized to submit reports. Ask an admin to add you as a reporter."); }
+    if (!res.ok) { return showBanner("err", "Failed to load operations: " + res.status); }
+    const { rows } = await res.json();
+    const active = (rows || []).filter(r => r.is_active !== false);
+    selOp.innerHTML = "";
+    if (active.length === 0) {
+      selOp.innerHTML = '<option value="">No operations available</option>';
+      showBanner("err", "You have no active operations to report on. Ask an admin to assign you.");
+      return;
+    }
+    selOp.appendChild(new Option("Select an operation...", ""));
+    active.forEach(r => {
+      const label = `${r.factory_name} - ${r.shift}`;
+      selOp.appendChild(new Option(label, r.op_id));
+    });
+    // Preselect from URL if it matches one of the user's ops.
+    if (opId && active.some(r => r.op_id === opId)) {
+      selOp.value = opId;
+      await loadContext();
+    }
+  }
+
+  function initDatePicker() {
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+    const minDate = new Date(today.getTime() - 30 * 86400000).toISOString().slice(0, 10);
+    selDate.value = todayStr;
+    selDate.max   = todayStr;
+    selDate.min   = minDate;
+    selectedDate  = todayStr;
+    selHint.textContent = `Backdated reports allowed up to 30 days (from ${minDate}).`;
+  }
+
+  selOp.onchange = async () => {
+    opId = selOp.value;
+    meta.textContent = opId || "-";
+    resetFormState();
+    hideBanner();
+    if (opId) await loadContext();
+  };
+  selDate.onchange = async () => {
+    selectedDate = selDate.value;
+    resetFormState();
+    hideBanner();
+    if (opId) await loadContext();
+  };
+
+  async function loadContext() {
+    if (!token()) return redirectToLogin();
+    if (!opId) return;
+    const myToken = ++loadToken;
+    let res;
+    const qs = selectedDate ? ("?date=" + encodeURIComponent(selectedDate)) : "";
+    try {
+      res = await fetch(API + "/api/op/" + encodeURIComponent(opId) + qs, {
+        headers: { Authorization: "Bearer " + token() },
+      });
+    } catch (e) { return showBanner("err", "Network error: " + e.message); }
+    if (myToken !== loadToken) return;   // user changed selection mid-flight
+
+    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
+    if (res.status === 403) { return showBanner("err", "You're not assigned to this operation."); }
     if (res.status === 404) { return showBanner("err", "Operation not found."); }
     if (res.status === 410) {
       const j = await res.json().catch(() => ({}));
       return showBanner("err", "Operation unavailable: " + (j.detail || "not active"));
     }
-    if (!res.ok) { return showBanner("err", "Unexpected error: " + res.status); }
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      return showBanner("err", "Unexpected error: " + (j.detail || res.status));
+    }
 
     const ctx = await res.json();
+    currentCtx = ctx;
     renderOp(ctx);
     renderQuickNav(ctx);
     if (ctx.already_submitted) {
-      showBanner("ok", "Today's report was already submitted for this operation. Come back tomorrow.");
+      showBanner("ok", `A report was already submitted for ${ctx.factory_name} on ${ctx.report_date}. Pick a different date to backfill another day.`);
+      appEl.classList.add("hidden");
       return;
     }
     appEl.classList.remove("hidden");
     addPerson();
+    // If a draft exists for this exact (op, date), restore it so the user doesn't
+    // lose 40 rows of work to a refresh or crash.
+    const draft = loadDraft();
+    if (draft && hasAnyContent(draft)) {
+      restoreDraft(draft);
+      const ts = draft.saved_at ? new Date(draft.saved_at).toLocaleString() : "";
+      showBanner("warn", `Restored draft from ${ts}. Photos need to be re-attached if any.`);
+    }
   }
 
   function renderQuickNav(ctx) {
@@ -464,10 +756,17 @@
       if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
       const j = await res.json().catch(() => ({}));
       if (!res.ok) { alert("Submit failed: " + (j.detail || res.status)); return; }
+      // Submit landed - drop the draft so it won't prompt on next load.
+      clearDraft(opId, selectedDate);
       // Local CSV backup of exactly what we sent - downloaded automatically.
       try { downloadCsv(payload.json); } catch (e) { console.warn("csv export failed", e); }
       appEl.classList.add("hidden");
-      showBanner("ok", "Report submitted. A CSV backup has been saved to your device.");
+      const pending = j.attendance_status === "pending";
+      const who = j.validator_role === "captain" ? "a captain" : (j.validator_role === "chief" ? "a chief" : "");
+      const msg = pending
+        ? `Report submitted. Attendance is awaiting review by ${who}. CSV backup saved locally.`
+        : "Report submitted. A CSV backup has been saved to your device.";
+      showBanner("ok", msg);
     } finally {
       btn.disabled = false;
       btn.textContent = orig;
@@ -582,17 +881,14 @@
       });
       if (file) photos.push(file);
     }
-    return { json: { daily, events, attendance }, photos };
+    return { json: { daily, events, attendance, report_date: selectedDate || null }, photos };
   }
 
   function numVal(id) { const v = document.getElementById(id).value; return v === "" ? null : Number(v); }
   function strVal(id) { return document.getElementById(id).value || null; }
 
-  if (!opId) {
-    showBanner("err", "Missing operation id. Expected URL like /r/factory-a_morning-shift");
-  } else {
-    loadContext();
-  }
+  initDatePicker();
+  loadOpList();
 })();
 </script>
 </body>
