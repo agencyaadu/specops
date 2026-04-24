@@ -1,349 +1,893 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Analytics - SPEC-OPS</title>
+<title>SpecOps Daily - Analytics</title>
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-  *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg:#000; --surface:#0a0a0a; --border:rgba(255,255,255,0.14); --border-md:rgba(255,255,255,0.28);
-    --text:#f2f2f2; --muted:#9a9a9a; --hint:#5a5a5a; --accent:#fff; --on-accent:#000;
-    --green:#3ecf8e; --green-soft:rgba(62,207,142,0.12);
-    --amber:#f5a524; --amber-soft:rgba(245,165,36,0.10);
-    --red:#f87171;   --red-soft:rgba(248,113,113,0.08);
-    --blue:#60a5fa;  --blue-soft:rgba(96,165,250,0.12);
-    --mono:'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  :root, [data-theme="dark"] {
+    --bg: #000000; --panel: #0A0A0A; --panel-2: #141414;
+    --border: #1F1F1F; --border-2: #2A2A2A;
+    --ink: #FFFFFF; --muted: #A0A0A0; --sub: #5A5A5A; --dim: #3A3A3A;
+    --row-hover: #0F0F0F; --input-bg: #0A0A0A;
   }
-  html,body { background:var(--bg); }
-  body { color:var(--text); font-family:var(--mono); font-size:13px; line-height:1.55; min-height:100vh; }
-  .page { max-width:1200px; margin:0 auto; padding:2.2rem 1.4rem 5rem; }
-  .topbar { display:flex; justify-content:space-between; align-items:center; padding-bottom:1rem; border-bottom:1px solid var(--border); margin-bottom:1.6rem; flex-wrap:wrap; gap:10px; }
-  .topbar h1 { font-size:12px; font-weight:500; letter-spacing:.18em; text-transform:uppercase; }
-  .topbar .nav { display:flex; gap:12px; align-items:center; }
-  .topbar .nav a { color:var(--muted); text-decoration:none; font-size:10px; letter-spacing:.16em; text-transform:uppercase; border-bottom:1px solid transparent; padding-bottom:2px; }
-  .topbar .nav a:hover { color:var(--text); border-bottom-color:var(--border-md); }
-  .topbar .meta { font-size:10px; letter-spacing:.14em; color:var(--hint); text-transform:uppercase; display:flex; gap:12px; align-items:center; }
-  .tabs { display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:1.2rem; }
-  .tab { padding:10px 20px; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; }
-  .tab.active { color:var(--text); border-bottom-color:var(--accent); }
-  .tab:hover { color:var(--text); }
-  .controls { display:flex; align-items:center; gap:10px; margin-bottom:1rem; flex-wrap:wrap; }
-  .controls label { font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--hint); }
-  input[type=date] { background:transparent; border:1px solid var(--border); color:var(--text); font-family:var(--mono); font-size:12px; padding:6px 10px; color-scheme:dark; }
-  .btn { border:1px solid var(--border-md); background:transparent; color:var(--text); padding:6px 12px; font-family:var(--mono); font-size:10px; letter-spacing:.14em; text-transform:uppercase; cursor:pointer; transition:background .12s, border-color .12s; }
-  .btn:hover { border-color:var(--accent); background:var(--surface); }
-  .btn.tiny { padding:3px 8px; font-size:9px; }
-  .summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:1.4rem; }
-  .kpi { border:1px solid var(--border); padding:14px 16px; }
-  .kpi .label { font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--hint); }
-  .kpi .value { font-size:22px; font-weight:500; margin-top:6px; letter-spacing:-0.01em; }
-  .kpi .sub   { font-size:10px; color:var(--muted); margin-top:4px; letter-spacing:.14em; text-transform:uppercase; }
-  .card { border:1px solid var(--border); margin-bottom:1rem; }
-  .card-head { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--border); font-size:10px; letter-spacing:.18em; text-transform:uppercase; }
-  .card-head .slash { color:var(--muted); }
-  .card-body { padding:0; overflow-x:auto; }
-
-  /* chart area */
-  .chart-row { padding:18px 16px; display:grid; grid-template-columns:140px 1fr 90px; gap:10px 14px; align-items:center; font-size:12px; border-bottom:1px solid var(--border); }
-  .chart-row:last-child { border-bottom:0; }
-  .chart-row .label { color:var(--muted); }
-  .bar-track { height:8px; background:var(--surface); border:1px solid var(--border); position:relative; }
-  .bar-fill  { height:100%; background:var(--blue); background:var(--green); }
-  .chart-row.warn .bar-fill { background:var(--amber); }
-  .chart-row .val   { font-size:11px; color:var(--text); text-align:right; }
-  .metric-select { display:flex; gap:6px; align-items:center; }
-  .metric-select select { background:transparent; border:1px solid var(--border); color:var(--text); font-family:var(--mono); font-size:11px; padding:4px 8px; color-scheme:dark; }
-
-  /* table */
-  table { width:100%; border-collapse:collapse; font-size:12px; }
-  th, td { padding:10px 8px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap; }
-  th { font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); font-weight:500; }
-  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
-  .pill { display:inline-block; font-size:10px; letter-spacing:.12em; text-transform:uppercase; padding:2px 7px; border:1px solid var(--border); }
-  .pill.ok { border-color:var(--green); color:var(--green); background:var(--green-soft); }
-  .pill.warn { border-color:var(--amber); color:var(--amber); background:var(--amber-soft); }
-  .pill.mute { color:var(--hint); }
-  .empty { padding:20px; text-align:center; color:var(--hint); font-size:11px; letter-spacing:.14em; text-transform:uppercase; }
-  .banner { padding:12px 14px; border:1px solid var(--border); margin-bottom:1rem; font-size:12px; }
-  .banner.err { border-color:var(--red); color:var(--red); }
-  .hidden { display:none; }
+  [data-theme="light"] {
+    --bg: #FFFFFF; --panel: #FAFAFA; --panel-2: #F0F0F0;
+    --border: #E5E5E5; --border-2: #D4D4D4;
+    --ink: #000000; --muted: #525252; --sub: #A3A3A3; --dim: #D4D4D4;
+    --row-hover: #F5F5F5; --input-bg: #FFFFFF;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); transition: background 0.2s ease; }
+  body { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); min-height: 100vh; font-size: 13px; }
+  .wrap { max-width: 1440px; margin: 0 auto; padding: 28px 28px 60px; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; padding-bottom: 18px; border-bottom: 1px solid var(--border); margin-bottom: 24px; gap: 16px; flex-wrap: wrap; }
+  .brand h1 { font-size: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: -0.01em; }
+  .brand .sub { color: var(--muted); font-size: 10px; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.15em; }
+  .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .btn {
+    background: var(--panel); color: var(--muted); border: 1px solid var(--border-2);
+    padding: 8px 14px; cursor: pointer; font-size: 11px; font-family: inherit; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.1em; display: inline-flex; align-items: center; gap: 6px;
+    text-decoration: none;
+  }
+  .btn:hover { color: var(--ink); border-color: var(--ink); }
+  .btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 700; }
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+  .tab { background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--muted);
+    padding: 12px 18px; font-family: inherit; font-size: 11px; font-weight: 600; cursor: pointer;
+    text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: -1px; }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--ink); border-bottom-color: var(--ink); }
+  .date-nav { display: flex; align-items: center; gap: 10px; padding: 14px 18px; background: var(--panel); border: 1px solid var(--border); margin-bottom: 20px; flex-wrap: wrap; }
+  .date-nav .label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.14em; }
+  .date-nav input[type=date], .date-nav select.date-select {
+    background: var(--input-bg); color: var(--ink); border: 1px solid var(--border-2);
+    padding: 7px 10px; font-family: inherit; font-size: 12px; color-scheme: dark; min-width: 160px;
+  }
+  [data-theme="light"] .date-nav input[type=date], [data-theme="light"] .date-nav select.date-select { color-scheme: light; }
+  .date-nav .spacer { flex: 1; }
+  .date-nav .shift-toggle { display: flex; gap: 0; border: 1px solid var(--border-2); }
+  .date-nav .shift-toggle .btn { border: none; padding: 6px 12px; font-size: 10px; }
+  .date-nav .shift-toggle .btn.active { background: var(--ink); color: var(--bg); }
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--border); margin-bottom: 20px; }
+  .kpi { background: var(--panel); padding: 18px 20px 16px; position: relative; border-right: 1px solid var(--border); }
+  .kpi:last-child { border-right: none; }
+  .kpi::before { content: ''; position: absolute; top: -1px; left: 0; right: 0; height: 2px; background: var(--ink); }
+  .kpi .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); margin-bottom: 10px; }
+  .kpi .value { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+  .kpi .hint { font-size: 10px; color: var(--sub); margin-top: 8px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .kpi .hint .accent { color: var(--ink); font-weight: 700; }
+  .kpi .delta { font-size: 10px; margin-top: 6px; font-weight: 600; letter-spacing: 0.05em; }
+  .kpi .delta.up { color: var(--ink); }
+  .kpi .delta.down { color: var(--muted); }
+  .grid-2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--border); padding: 20px 22px; }
+  .card h3 { font-size: 10px; text-transform: uppercase; letter-spacing: 0.18em; color: var(--muted); margin-bottom: 16px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .card h3::before { content: ''; display: inline-block; width: 6px; height: 6px; background: var(--ink); }
+  .chart-box { position: relative; height: 300px; }
+  .chart-box.sm { height: 260px; }
+  .chart-box.lg { height: 380px; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; font-weight: 600; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; padding: 10px 12px; border-bottom: 1px solid var(--border-2); white-space: nowrap; }
+  td { padding: 12px; border-bottom: 1px solid var(--border); color: var(--ink); }
+  tr:hover td { background: var(--row-hover); }
+  td.num { font-variant-numeric: tabular-nums; }
+  td.loc { font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  td.fact { color: var(--muted); }
+  .bar { position: relative; background: var(--panel-2); height: 6px; overflow: hidden; min-width: 90px; border: 1px solid var(--border); }
+  .bar .fill { position: absolute; top: 0; left: 0; bottom: 0; background: var(--ink); transition: width 0.4s ease; }
+  .rate-cell { display: flex; align-items: center; gap: 10px; }
+  .rate-cell .pct { min-width: 40px; font-weight: 600; }
+  .chip { display: inline-block; padding: 3px 8px; font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; border: 1px solid; }
+  .chip.good { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .chip.warn { background: transparent; color: var(--ink); border-color: var(--ink); border-style: dashed; }
+  .chip.bad { background: transparent; color: var(--muted); border-color: var(--muted); border-style: dotted; }
+  .chip.muted { background: transparent; color: var(--sub); border-color: var(--sub); }
+  .insights { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; border: 1px solid var(--border); }
+  .insight { background: var(--panel); padding: 18px 20px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .insight:nth-child(2n) { border-right: none; }
+  .insight .tag { display: inline-block; font-size: 9px; letter-spacing: 0.18em; font-weight: 700; text-transform: uppercase; padding: 3px 8px; border: 1px solid var(--ink); background: var(--ink); color: var(--bg); margin-bottom: 10px; }
+  .insight.warn .tag { background: transparent; color: var(--ink); border-style: dashed; }
+  .insight.bad .tag { background: transparent; color: var(--muted); border-color: var(--muted); border-style: dotted; }
+  .insight.info .tag { background: transparent; color: var(--ink); }
+  .insight .title { font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+  .insight .body { font-size: 11.5px; color: var(--muted); line-height: 1.7; }
+  .section-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.18em; color: var(--muted); margin: 24px 0 14px; font-weight: 600; display: flex; align-items: center; gap: 12px; }
+  .section-title::before { content: ''; width: 20px; height: 1px; background: var(--ink); }
+  .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .empty { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.14em; border: 1px dashed var(--border-2); background: var(--panel); }
+  .pill { font-size: 10px; padding: 5px 9px; background: var(--panel); color: var(--muted); border: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.1em; }
+  .pill.live { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 700; }
+  .pill.live::before { content: '●'; margin-right: 5px; }
+  .banner { padding: 12px 14px; border: 1px solid var(--border-2); margin-bottom: 1rem; font-size: 12px; color: var(--muted); }
+  .banner.err { border-color: var(--ink); color: var(--ink); }
+  .hidden { display: none; }
+  @media (max-width: 900px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .insights { grid-template-columns: 1fr; }
+    .wrap { padding: 18px; }
+  }
 </style>
 <link rel="stylesheet" href="/assets/theme.css" />
 <script src="/assets/theme.js"></script>
 </head>
 <body>
+<div class="wrap">
 
-<div class="page">
   <div class="topbar">
-    <h1>// Analytics</h1>
-    <div class="nav" id="nav"></div>
-    <div class="meta">
-      <span id="who">-</span>
-      <button class="btn tiny" id="signout">Sign out</button>
+    <div class="brand">
+      <h1>SpecOps Daily</h1>
+      <div class="sub" id="brandSub">Loading…</div>
+    </div>
+    <div class="controls">
+      <span class="pill" id="liveStatus">Live</span>
+      <span class="label" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.14em">Range</span>
+      <input type="date" id="rangeFrom" class="date-select" />
+      <input type="date" id="rangeTo"   class="date-select" />
+      <button class="btn" id="refreshBtn" title="Reload data">⟳ Refresh</button>
+      <a class="btn" href="/ops/dashboard">← Dashboard</a>
+      <span id="who" style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.14em;margin-left:8px"></span>
+      <button class="btn" id="signout">Sign out</button>
     </div>
   </div>
 
-  <div id="status-banner" class="hidden"></div>
+  <div id="status-banner" class="banner hidden"></div>
 
-  <div id="app" class="hidden">
-    <div class="tabs">
-      <div class="tab active" data-group="date">Over Time</div>
-      <div class="tab" data-group="location">By Location</div>
-      <div class="tab" data-group="shift">By Shift</div>
-    </div>
+  <div class="tabs">
+    <button class="tab active" data-view="day">Daily</button>
+    <button class="tab" data-view="week">Weekly</button>
+    <button class="tab" data-view="location">Location Trend</button>
+  </div>
 
-    <div class="controls">
-      <label>From</label><input type="date" id="d-from" />
-      <label>To</label><input type="date" id="d-to" />
-      <button class="btn tiny" id="apply">Apply</button>
-      <button class="btn tiny" id="preset-7">Last 7</button>
-      <button class="btn tiny" id="preset-30">Last 30</button>
-      <button class="btn tiny" id="preset-today">Today</button>
-      <div style="flex:1"></div>
-      <div class="metric-select">
-        <label>Metric</label>
-        <select id="metric">
-          <option value="deployed_rate" selected>Deployed rate</option>
-          <option value="reporting_rate">Reporting rate</option>
-          <option value="verified_rate">Verified %</option>
-          <option value="good_hours_ratio">Good hours ratio</option>
-          <option value="sd_utilization">SD card utilization</option>
-          <option value="attendance_total">Attendance total</option>
-          <option value="reports_submitted">Reports submitted</option>
-          <option value="devices_deployed">Devices deployed</option>
-        </select>
+  <!-- DAILY VIEW -->
+  <div class="view active" id="view-day">
+    <div class="date-nav">
+      <span class="label">Date</span>
+      <button class="btn" id="prevDay">◂ Prev</button>
+      <select id="datePicker" class="date-select"></select>
+      <button class="btn" id="nextDay">Next ▸</button>
+      <button class="btn" id="todayBtn">Latest</button>
+      <div class="spacer"></div>
+      <span class="label">Shift</span>
+      <div class="shift-toggle" id="shiftToggle">
+        <button class="btn active" data-shift="all">All</button>
+        <button class="btn" data-shift="morning">Morning</button>
+        <button class="btn" data-shift="night">Night</button>
       </div>
     </div>
-
-    <div class="summary" id="summary"></div>
-
-    <div class="card">
-      <div class="card-head"><span><span class="slash">//</span>&nbsp; Breakdown</span><span id="rows-count" class="pill mute">0 rows</span></div>
-      <div id="chart-host" class="card-body"><div class="empty">loading…</div></div>
-    </div>
-
-    <div class="card">
-      <div class="card-head"><span><span class="slash">//</span>&nbsp; Raw</span></div>
-      <div class="card-body" id="table-host"><div class="empty">loading…</div></div>
-    </div>
+    <div id="dayContent"></div>
   </div>
+
+  <!-- WEEKLY VIEW -->
+  <div class="view" id="view-week">
+    <div class="date-nav">
+      <span class="label">Week Ending</span>
+      <button class="btn" id="prevWeek">◂ Prev</button>
+      <input type="date" id="weekPicker" />
+      <button class="btn" id="nextWeek">Next ▸</button>
+      <div class="spacer"></div>
+      <span class="label">Shift</span>
+      <div class="shift-toggle" id="shiftToggleWeek">
+        <button class="btn active" data-shift="all">All</button>
+        <button class="btn" data-shift="morning">Morning</button>
+        <button class="btn" data-shift="night">Night</button>
+      </div>
+    </div>
+    <div id="weekContent"></div>
+  </div>
+
+  <!-- LOCATION TREND -->
+  <div class="view" id="view-location">
+    <div class="date-nav">
+      <span class="label">Location</span>
+      <select id="locSelect" class="btn" style="padding: 7px 12px;"></select>
+      <div class="spacer"></div>
+      <span class="label">Metric</span>
+      <div class="shift-toggle" id="metricToggle">
+        <button class="btn active" data-metric="dep">Deployed</button>
+        <button class="btn" data-metric="rate">Rate</button>
+        <button class="btn" data-metric="ops">Ops</button>
+        <button class="btn" data-metric="sd">SD</button>
+      </div>
+    </div>
+    <div id="locContent"></div>
+  </div>
+
+  <div class="view" id="view-loading" style="display:none">
+    <div class="empty">Loading live ops data…</div>
+  </div>
+
+  <style>.view { display: none; } .view.active { display: block; }</style>
 </div>
 
 <script src="/config.js"></script>
 <script>
-(function () {
-  const API     = window.BACKEND_URL;
-  const TOKEN_K = "spec_token";
-  const whoEl   = document.getElementById("who");
-  const nav     = document.getElementById("nav");
-  const banner  = document.getElementById("status-banner");
-  const appEl   = document.getElementById("app");
-  const dFrom   = document.getElementById("d-from");
-  const dTo     = document.getElementById("d-to");
-  const metricSel = document.getElementById("metric");
+// ================================================================
+// SpecOps Daily analytics - fed by /api/dashboard.
+// We fetch one dashboard snapshot per day in the selected range and
+// flatten into the per-(op, date) "record" shape the UI was designed
+// around (factory, location, shift, ops, deployed, available, sd, ...).
+// ================================================================
 
-  (function captureToken() {
-    const p = new URLSearchParams(location.search);
-    const t = p.get("token");
-    if (t) {
-      localStorage.setItem(TOKEN_K, t);
-      p.delete("token");
-      const qs = p.toString();
-      history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
-    }
-  })();
+const API      = window.BACKEND_URL;
+const TOKEN_K  = "spec_token";
+const whoEl    = document.getElementById("who");
+const banner   = document.getElementById("status-banner");
+const liveBadge = document.getElementById("liveStatus");
 
-  function token() { return localStorage.getItem(TOKEN_K) || ""; }
-  function authHdr() { return { Authorization: "Bearer " + token() }; }
-  function redirectToLogin() {
-    location.href = API + "/auth/google?next=" + encodeURIComponent(location.pathname);
+(function captureToken() {
+  const p = new URLSearchParams(location.search);
+  const t = p.get("token");
+  if (t) {
+    localStorage.setItem(TOKEN_K, t);
+    p.delete("token");
+    const qs = p.toString();
+    history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
   }
-  function showBanner(cls, msg) {
-    banner.className = "banner " + cls;
-    banner.textContent = msg;
-    banner.classList.remove("hidden");
-  }
-
-  document.getElementById("signout").onclick = function () {
-    localStorage.removeItem(TOKEN_K);
-    location.reload();
-  };
-
-  function todayIsoIST() {
-    return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-  }
-  function daysAgoIsoIST(n) {
-    const d = new Date();
-    d.setDate(d.getDate() - n);
-    return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-  }
-
-  let currentGroup = "date";
-
-  async function bootstrap() {
-    if (!token()) return redirectToLogin();
-    let res;
-    try { res = await fetch(API + "/auth/verify?token=" + encodeURIComponent(token())); }
-    catch (e) { return showBanner("err", "Network error: " + e.message); }
-    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
-    if (!res.ok) return showBanner("err", "Auth check failed: " + res.status);
-    const { user } = await res.json();
-    if (user.role === "owner") user.role = "freddy";  // legacy JWT compat
-    if (!["freddy","general","chief","viewer"].includes(user.role)) {
-      return showBanner("err", `Signed in as ${user.email} (role: ${user.role || "none"}). Analytics is for Freddys, generals, chiefs, and viewers.`);
-    }
-    whoEl.textContent = `${user.email} · ${user.role}`;
-    const adminHref = ["freddy","general"].includes(user.role) ? "/ops/general"
-                    : user.role === "chief" ? "/ops/chief"
-                    : null;
-    nav.innerHTML = `
-      <a href="/ops/dashboard">Dashboard</a>
-      ${adminHref ? `<a href="${adminHref}">← Admin</a>` : ""}
-    `;
-
-    dTo.value   = todayIsoIST();
-    dFrom.value = daysAgoIsoIST(6);
-    appEl.classList.remove("hidden");
-    load();
-  }
-
-  document.querySelectorAll(".tab").forEach(t => {
-    t.onclick = () => {
-      document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
-      t.classList.add("active");
-      currentGroup = t.dataset.group;
-      load();
-    };
-  });
-  document.getElementById("apply").onclick = load;
-  document.getElementById("preset-7").onclick = () => { dTo.value = todayIsoIST(); dFrom.value = daysAgoIsoIST(6); load(); };
-  document.getElementById("preset-30").onclick = () => { dTo.value = todayIsoIST(); dFrom.value = daysAgoIsoIST(29); load(); };
-  document.getElementById("preset-today").onclick = () => { const t = todayIsoIST(); dTo.value = t; dFrom.value = t; load(); };
-  metricSel.onchange = renderCurrent;
-
-  let lastData = null;
-
-  async function load() {
-    const qs = new URLSearchParams({ from: dFrom.value, to: dTo.value, group: currentGroup }).toString();
-    document.getElementById("chart-host").innerHTML = `<div class="empty">loading…</div>`;
-    document.getElementById("table-host").innerHTML = "";
-    document.getElementById("summary").innerHTML = "";
-    const res = await fetch(API + "/api/analytics?" + qs, { headers: authHdr() });
-    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
-    if (!res.ok) { document.getElementById("chart-host").innerHTML = `<div class="banner err">Failed: ${res.status}</div>`; return; }
-    lastData = await res.json();
-    renderCurrent();
-  }
-
-  function renderCurrent() {
-    if (!lastData) return;
-    renderSummary(lastData.overall);
-    renderChart(lastData.rows, metricSel.value);
-    renderTable(lastData.rows);
-  }
-
-  function fmtPct(v) { return v == null ? "-" : (v * 100).toFixed(1) + "%"; }
-  function fmtNum(v) { return v == null ? "-" : (typeof v === "number" && v % 1 !== 0) ? v.toFixed(1) : String(v); }
-
-  function renderSummary(k) {
-    const host = document.getElementById("summary");
-    const cards = [
-      { label: "Deployed rate",    value: fmtPct(k.deployed_rate),   sub: `${k.devices_deployed}/${k.devices_available} dev` },
-      { label: "Reporting rate",   value: fmtPct(k.reporting_rate),  sub: `${k.reports_submitted} reports / ${k.active_ops} active-days` },
-      { label: "Verified att %",   value: fmtPct(k.verified_rate),   sub: `${k.attendance_verified}/${k.attendance_total} verified` },
-      { label: "Good hours",       value: k.good_hours_actual == null ? "-" : fmtNum(k.good_hours_actual), sub: k.good_hours_projected ? `of ${fmtNum(k.good_hours_projected)} projected` : "" },
-      { label: "SD utilization",   value: fmtPct(k.sd_utilization),  sub: `${fmtNum(k.sd_used)} used / ${fmtNum(k.sd_left)} left` },
-    ];
-    host.innerHTML = cards.map(c => `
-      <div class="kpi">
-        <div class="label">${esc(c.label)}</div>
-        <div class="value">${esc(c.value)}</div>
-        <div class="sub">${esc(c.sub || "")}</div>
-      </div>
-    `).join("");
-  }
-
-  function isPct(metric) {
-    return ["deployed_rate","reporting_rate","verified_rate","good_hours_ratio","sd_utilization"].includes(metric);
-  }
-
-  function formatMetric(metric, v) {
-    if (v == null) return "-";
-    if (isPct(metric)) return (v * 100).toFixed(1) + "%";
-    return (typeof v === "number" && v % 1 !== 0) ? v.toFixed(1) : String(v);
-  }
-
-  function renderChart(rows, metric) {
-    const host = document.getElementById("chart-host");
-    document.getElementById("rows-count").textContent = `${rows.length} ${currentGroup === 'date' ? 'days' : currentGroup + 's'}`;
-    if (rows.length === 0) { host.innerHTML = `<div class="empty">No rows for this range.</div>`; return; }
-
-    const values = rows.map(r => r.kpis[metric]).map(v => v == null ? 0 : v);
-    const maxV = Math.max(1, ...values);
-    host.innerHTML = rows.map((r, i) => {
-      const v = r.kpis[metric];
-      const pct = v == null ? 0 : (v / maxV) * 100;
-      const cls = (isPct(metric) && v != null && v < 0.5) ? "warn" : "";
-      return `
-        <div class="chart-row ${cls}">
-          <div class="label">${esc(r.key || "-")}</div>
-          <div class="bar-track"><div class="bar-fill" style="width:${pct.toFixed(1)}%"></div></div>
-          <div class="val">${esc(formatMetric(metric, v))}</div>
-        </div>
-      `;
-    }).join("");
-  }
-
-  function renderTable(rows) {
-    const host = document.getElementById("table-host");
-    if (rows.length === 0) { host.innerHTML = `<div class="empty">No rows.</div>`; return; }
-    host.innerHTML = `
-      <table>
-        <thead>
-          <tr>
-            <th>${currentGroup === 'date' ? 'Date' : currentGroup[0].toUpperCase()+currentGroup.slice(1)}</th>
-            <th class="num">Reports</th>
-            <th class="num">Deployed / Avail</th>
-            <th class="num">Deployed %</th>
-            <th class="num">Good hrs A/P</th>
-            <th class="num">SD used</th>
-            <th class="num">Att total</th>
-            <th class="num">Att verified</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows.map(r => {
-            const k = r.kpis;
-            return `
-              <tr>
-                <td>${esc(r.key)}</td>
-                <td class="num">${k.reports_submitted}/${k.active_ops}</td>
-                <td class="num">${fmtNum(k.devices_deployed)} / ${fmtNum(k.devices_available)}</td>
-                <td class="num">${fmtPct(k.deployed_rate)}</td>
-                <td class="num">${fmtNum(k.good_hours_actual)} / ${fmtNum(k.good_hours_projected)}</td>
-                <td class="num">${fmtNum(k.sd_used)}</td>
-                <td class="num">${k.attendance_total}</td>
-                <td class="num">${k.attendance_verified}</td>
-              </tr>
-            `;
-          }).join("")}
-        </tbody>
-      </table>
-    `;
-  }
-
-  function esc(v) {
-    if (v === null || v === undefined) return "";
-    return String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  }
-
-  bootstrap();
 })();
+
+function token() { return localStorage.getItem(TOKEN_K) || ""; }
+function authHdr() { return { Authorization: "Bearer " + token() }; }
+function redirectToLogin() { location.href = API + "/auth/google?next=" + encodeURIComponent(location.pathname); }
+function showBanner(cls, msg) { banner.className = "banner " + cls; banner.textContent = msg; banner.classList.remove("hidden"); }
+function hideBanner()        { banner.className = "banner hidden"; banner.textContent = ""; }
+
+document.getElementById("signout").onclick = () => { localStorage.removeItem(TOKEN_K); location.reload(); };
+
+// ---------- STATE ----------
+let STATE = [];              // flattened (op, date) records for every fetched day
+let RANGE_FROM = "";         // yyyy-mm-dd
+let RANGE_TO   = "";
+let curDate    = null;
+let curShift   = 'all';
+let weekEnd    = null;
+let weekShift  = 'all';
+let curLoc     = null;
+let curMetric  = 'dep';
+
+// ---------- DATE HELPERS ----------
+function iso(d) { return d.toISOString().slice(0,10); }
+function addDays(dStr, n) { const d = new Date(dStr); d.setDate(d.getDate() + n); return iso(d); }
+function daysBetween(a, b) { return Math.round((new Date(b) - new Date(a)) / 86400000); }
+function allDates() { return [...new Set(STATE.map(r => r.date))].sort(); }
+function latestDate() { const d = allDates(); return d.length ? d[d.length - 1] : (RANGE_TO || iso(new Date())); }
+function filterBy(date, shift = 'all') { return STATE.filter(r => r.date === date && (shift === 'all' || r.shift === shift)); }
+
+// ---------- BACKEND LOADER ----------
+// Normalise op.shift into one of "morning" | "night". If the op's shift text
+// mentions "night" or starts with "B/2" we call it night; everything else defaults
+// to morning so the UI can still filter even when shift names are freeform.
+function normaliseShift(raw) {
+  const s = String(raw || "").trim().toLowerCase();
+  if (!s) return "morning";
+  if (/\bnight\b/.test(s)) return "night";
+  if (/^shift\s*b\b/.test(s) || /^b\b/.test(s)) return "night";
+  if (/^2/.test(s)) return "night";
+  return "morning";
+}
+
+function deriveStatus(op) {
+  if (!op.is_active) return 'Ended';
+  if (!op.submitted) return 'Pending';
+  return null;  // let the UI compute from rate
+}
+
+// Convert the dashboard payload for a single date into per-op records for the UI.
+function flattenDashboard(dash) {
+  const date = dash.date;
+  const out = [];
+  for (const op of (dash.ops || [])) {
+    const r = op.report || {};
+    out.push({
+      date,
+      shift:          normaliseShift(op.shift),
+      shiftTime:      op.shift || "",
+      factory:        op.factory_name || "",
+      location:       op.location || "Unspecified",
+      team:           op.sales_team_name || "",
+      poc:            op.poc1_name || "",
+      phone:          op.poc1_phone || "",
+      location_code:  "",
+      ops:            Number(r.operators || 0),
+      deployed:       Number(r.devices_deployed || 0),
+      available:      Number(r.devices_available || 0),
+      sd:             Number(r.sd_cards_left || 0),
+      gh_actual:      r.good_hours_actual    != null ? Number(r.good_hours_actual)    : null,
+      gh_projected:   r.good_hours_projected != null ? Number(r.good_hours_projected) : null,
+      defected:       Number(r.devices_lost || 0),
+      status_override: deriveStatus(op),
+      notes:          "",
+      op_id:          op.op_id,
+    });
+  }
+  return out;
+}
+
+async function loadFromBackend(fromDate, toDate) {
+  if (!token()) { redirectToLogin(); return; }
+  liveBadge.textContent = "Fetching";
+  liveBadge.classList.remove("live");
+
+  const days = daysBetween(fromDate, toDate) + 1;
+  if (days <= 0 || days > 90) { showBanner("err", "Pick a range between 1 and 90 days."); return; }
+
+  const dates = [];
+  for (let i = 0; i < days; i++) dates.push(addDays(fromDate, i));
+
+  const out = [];
+  let firstError = null;
+  // Parallel fetches - 30-day windows finish in <2s over wifi even on Render.
+  const results = await Promise.all(dates.map(async d => {
+    try {
+      const res = await fetch(API + "/api/dashboard?date=" + encodeURIComponent(d), { headers: authHdr() });
+      if (res.status === 401) return { err: 401, d };
+      if (!res.ok) return { err: res.status, d };
+      return { ok: true, d, json: await res.json() };
+    } catch (e) {
+      return { err: e.message, d };
+    }
+  }));
+
+  for (const r of results) {
+    if (r.ok) out.push(...flattenDashboard(r.json));
+    else if (!firstError) firstError = r;
+  }
+
+  if (firstError && firstError.err === 401) { localStorage.removeItem(TOKEN_K); redirectToLogin(); return; }
+
+  STATE = out;
+  if (!STATE.length) {
+    liveBadge.textContent = "No Data"; liveBadge.classList.remove("live");
+    showBanner("err", firstError ? `Backend error ${firstError.err} on ${firstError.d}.` : `No reports in this range.`);
+  } else {
+    liveBadge.textContent = "Live"; liveBadge.classList.add("live");
+    hideBanner();
+  }
+  // Anchor view state to the latest day with data.
+  curDate = latestDate();
+  weekEnd = latestDate();
+  refreshDateOptions();
+  const wp = document.getElementById("weekPicker"); if (wp) wp.value = weekEnd;
+  rerender();
+}
+
+// ---------- AGGREGATION HELPERS ----------
+function sumByLocation(records) {
+  const out = {};
+  for (const r of records) {
+    if (!out[r.location]) out[r.location] = { location: r.location, ops: 0, deployed: 0, available: 0, sdSet: new Set(), factories: new Set() };
+    out[r.location].ops += r.ops;
+    out[r.location].deployed += r.deployed;
+    out[r.location].available += r.available;
+    out[r.location].sdSet.add(r.sd);
+    out[r.location].factories.add(r.factory);
+  }
+  return Object.values(out).map(g => ({
+    location: g.location,
+    ops: g.ops,
+    deployed: g.deployed,
+    available: g.available,
+    sd: [...g.sdSet].reduce((s, v) => s + v, 0),
+    factories: [...g.factories],
+  }));
+}
+function totalSD(records) {
+  // SD cards are held at the factory level, so we dedupe per-location before summing
+  // to avoid double-counting the same stash that appears on multiple rows.
+  const byLoc = {};
+  for (const r of records) { if (!byLoc[r.location]) byLoc[r.location] = new Set(); byLoc[r.location].add(r.sd); }
+  let t = 0;
+  for (const loc of Object.values(byLoc)) for (const v of loc) t += v;
+  return t;
+}
+function statusOf(rate, deployed, available) {
+  if (available === 0) return { label: 'Pending', cls: 'muted' };
+  if (deployed === 0)  return { label: 'Ended',   cls: 'bad' };
+  if (rate >= 0.65)    return { label: 'Healthy', cls: 'good' };
+  if (rate >= 0.35)    return { label: 'Below',   cls: 'warn' };
+  return { label: 'Low', cls: 'warn' };
+}
+function fmt(n) { return (n || 0).toLocaleString(); }
+
+// ---------- PALETTE + CHART HELPERS ----------
+function palette() {
+  const light = document.documentElement.getAttribute('data-theme') === 'light';
+  return light ? {
+    ink: '#000000', bg: '#FFFFFF', muted: '#525252', sub: '#A3A3A3',
+    grid: '#F0F0F0', panel2: '#F0F0F0', border: '#D4D4D4',
+    shades: ['#000000','#303030','#505050','#707070','#909090','#B0B0B0','#CCCCCC','#E0E0E0','#EAEAEA','#F0F0F0'],
+    dim: '#E5E5E5',
+  } : {
+    ink: '#FFFFFF', bg: '#000000', muted: '#A0A0A0', sub: '#5A5A5A',
+    grid: '#141414', panel2: '#2A2A2A', border: '#3A3A3A',
+    shades: ['#FFFFFF','#D0D0D0','#A8A8A8','#858585','#6A6A6A','#545454','#3E3E3E','#2E2E2E','#222222','#1A1A1A'],
+    dim: '#1F1F1F',
+  };
+}
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
+Chart.defaults.font.size = 10;
+const charts = {};
+function destroyChart(key) { if (charts[key]) { charts[key].destroy(); delete charts[key]; } }
+function tooltipBase(p) {
+  return {
+    backgroundColor: p.bg, borderColor: p.ink, borderWidth: 1, padding: 12,
+    titleColor: p.ink, bodyColor: p.muted, displayColors: false,
+    titleFont: { family: "'JetBrains Mono', monospace", weight: '700' },
+    bodyFont:  { family: "'JetBrains Mono', monospace" },
+  };
+}
+
+// ---------- TABS ----------
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('view-' + t.dataset.view).classList.add('active');
+    rerender();
+  });
+});
+
+// ---------- DAILY VIEW ----------
+const datePicker = document.getElementById('datePicker');
+function refreshDateOptions() {
+  const dates = allDates();
+  if (!dates.length) { datePicker.innerHTML = '<option value="">No data</option>'; return; }
+  const sorted = [...dates].sort().reverse();
+  datePicker.innerHTML = sorted.map(d => {
+    const dt = new Date(d);
+    const dow = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()];
+    return `<option value="${d}">${d}  ·  ${dow}</option>`;
+  }).join('');
+  datePicker.value = curDate || sorted[0];
+}
+function setDate(d) {
+  const dates = allDates();
+  if (!dates.length) return;
+  if (!dates.includes(d)) d = dates.reduce((a, b) => Math.abs(new Date(b) - new Date(d)) < Math.abs(new Date(a) - new Date(d)) ? b : a, dates[0]);
+  curDate = d; refreshDateOptions(); datePicker.value = d; rerender();
+}
+datePicker.addEventListener('change', e => { curDate = e.target.value; rerender(); });
+document.getElementById('prevDay').addEventListener('click', () => { const d = allDates(); const i = d.indexOf(curDate); if (i > 0) setDate(d[i-1]); });
+document.getElementById('nextDay').addEventListener('click', () => { const d = allDates(); const i = d.indexOf(curDate); if (i < d.length-1) setDate(d[i+1]); });
+document.getElementById('todayBtn').addEventListener('click', () => setDate(latestDate()));
+document.querySelectorAll('#shiftToggle .btn').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#shiftToggle .btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active'); curShift = b.dataset.shift; rerender();
+  });
+});
+
+function renderDay() {
+  const recs = filterBy(curDate, curShift);
+  const content = document.getElementById('dayContent');
+  if (recs.length === 0) {
+    content.innerHTML = '<div class="empty">No data for ' + curDate + (curShift !== 'all' ? ' / ' + curShift + ' shift' : '') + '</div>';
+    destroyChart('deploy'); destroyChart('rate'); destroyChart('sd');
+    return;
+  }
+  const totals = recs.reduce((s, r) => ({ ops: s.ops + r.ops, dep: s.dep + r.deployed, avail: s.avail + r.available }), { ops: 0, dep: 0, avail: 0 });
+  const sd = totalSD(recs);
+  const rate = totals.avail ? (totals.dep / totals.avail * 100) : 0;
+  const byLoc = sumByLocation(recs);
+  const locCount = byLoc.length;
+  const factoryCount = new Set(recs.map(r => r.factory)).size;
+  const dates = allDates();
+  const i = dates.indexOf(curDate);
+  const prevDate = i > 0 ? dates[i - 1] : null;
+  const prevRecs = prevDate ? filterBy(prevDate, curShift) : [];
+  const prevTotals = prevRecs.reduce((s, r) => ({ ops: s.ops + r.ops, dep: s.dep + r.deployed, avail: s.avail + r.available }), { ops: 0, dep: 0, avail: 0 });
+  const prevRate = prevTotals.avail ? (prevTotals.dep / prevTotals.avail * 100) : 0;
+
+  function delta(cur, prev, suffix = '') {
+    if (!prev) return '';
+    const d = cur - prev;
+    if (d === 0) return '<div class="delta">— No change</div>';
+    const sign = d > 0 ? '▲' : '▼';
+    return `<div class="delta ${d > 0 ? 'up' : 'down'}">${sign} ${Math.abs(d).toLocaleString()}${suffix} vs ${prevDate}</div>`;
+  }
+  const topSd = [...byLoc].sort((a, b) => b.sd - a.sd)[0];
+  const sdPct = sd > 0 ? (topSd.sd / sd * 100).toFixed(0) : 0;
+
+  content.innerHTML = `
+    <div class="kpi-grid">
+      <div class="kpi"><div class="label">01 // Operators</div><div class="value">${fmt(totals.ops)}</div><div class="hint">${locCount} Locations · ${factoryCount} Factories</div>${delta(totals.ops, prevTotals.ops)}</div>
+      <div class="kpi"><div class="label">02 // Devices Deployed</div><div class="value">${fmt(totals.dep)}</div><div class="hint">Of <span class="accent">${fmt(totals.avail)}</span> Available</div>${delta(totals.dep, prevTotals.dep)}</div>
+      <div class="kpi"><div class="label">03 // In House Rate</div><div class="value">${rate.toFixed(0)}%</div><div class="hint">${curShift.toUpperCase()} Shift</div>${prevRate ? `<div class="delta ${rate >= prevRate ? 'up' : 'down'}">${rate >= prevRate ? '▲' : '▼'} ${Math.abs(rate - prevRate).toFixed(1)} pp vs ${prevDate}</div>` : ''}</div>
+      <div class="kpi"><div class="label">04 // SD Cards</div><div class="value">${fmt(sd)}</div><div class="hint">${topSd ? topSd.location + ' Holds ' + sdPct + '%' : '—'}</div></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card"><h3>Deployed vs Available</h3><div class="chart-box"><canvas id="chartDeploy"></canvas></div></div>
+      <div class="card"><h3>SD Inventory Split</h3><div class="chart-box"><canvas id="chartSd"></canvas></div></div>
+    </div>
+
+    <div class="card" style="margin-bottom: 16px;">
+      <h3>Deployment Rate Ranking</h3>
+      <div class="chart-box sm"><canvas id="chartRate"></canvas></div>
+    </div>
+
+    <div class="card" style="margin-bottom: 20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <h3 style="margin: 0;">Factory Breakdown</h3>
+        <span class="pill">${recs.length} records</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Location</th><th>Factory</th><th>Team</th><th>POC</th><th>Shift</th>
+            <th class="num">Ops</th><th class="num">Deployed / Avail.</th><th>Rate</th>
+            <th class="num">SD</th><th class="num">GH Act.</th><th class="num">GH Proj.</th><th>Status</th>
+          </tr></thead>
+          <tbody>
+            ${recs.map(r => {
+              const rt = r.available ? (r.deployed / r.available * 100) : 0;
+              const computed = statusOf(rt / 100, r.deployed, r.available);
+              const st = r.status_override
+                ? { label: r.status_override, cls: /healthy/i.test(r.status_override) ? 'good' : (/below|low|warn/i.test(r.status_override) ? 'warn' : (/ended/i.test(r.status_override) ? 'bad' : 'muted')) }
+                : computed;
+              const ghA = r.gh_actual    != null ? Number(r.gh_actual).toFixed(1)    : '—';
+              const ghP = r.gh_projected != null ? Number(r.gh_projected).toFixed(1) : '—';
+              return `<tr title="${r.notes ? r.notes.replace(/"/g,'') : ''}">
+                <td class="loc">${r.location}${r.location_code ? ' <span style="color:var(--sub);font-weight:400;">· ' + r.location_code + '</span>' : ''}</td>
+                <td class="fact">${r.factory}</td>
+                <td class="fact">${r.team || ''}</td>
+                <td class="fact">${r.poc || ''}</td>
+                <td class="fact">${r.shift}${r.shiftTime ? ' <span style="color:var(--sub);">· ' + r.shiftTime + '</span>' : ''}</td>
+                <td class="num">${r.ops}</td>
+                <td class="num">${fmt(r.deployed)} / ${fmt(r.available)}</td>
+                <td><div class="rate-cell"><span class="pct">${rt.toFixed(0)}%</span><div class="bar"><div class="fill" style="width: ${Math.min(rt,100)}%;"></div></div></div></td>
+                <td class="num">${fmt(r.sd)}</td>
+                <td class="num" style="color: var(--muted);">${ghA}</td>
+                <td class="num" style="color: var(--muted);">${ghP}</td>
+                <td><span class="chip ${st.cls}">${st.label}</span></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section-title">Insights</div>
+    <div class="insights">
+      ${buildInsights(recs, byLoc, totals, sd, prevRecs).map(ins => `
+        <div class="insight ${ins.cls}">
+          <span class="tag">${ins.tag}</span>
+          <div class="title">${ins.title}</div>
+          <div class="body">${ins.body}</div>
+        </div>`).join('')}
+    </div>
+  `;
+
+  const p = palette();
+  const sorted = [...byLoc].sort((a, b) => b.available - a.available);
+  destroyChart('deploy');
+  charts.deploy = new Chart(document.getElementById('chartDeploy'), {
+    type: 'bar',
+    data: {
+      labels: sorted.map(r => r.location.toUpperCase()),
+      datasets: [
+        { label: 'Available', data: sorted.map(r => r.available), backgroundColor: p.panel2, borderColor: p.border, borderWidth: 1 },
+        { label: 'Deployed', data: sorted.map(r => r.deployed), backgroundColor: p.ink },
+      ]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { color: p.muted, font: { size: 10, weight: '600' } } }, tooltip: { ...tooltipBase(p), callbacks: { afterLabel: ctx => { if (ctx.dataset.label === 'Deployed') { const d = sorted[ctx.dataIndex]; return 'Rate : ' + (d.deployed / d.available * 100).toFixed(0) + '%'; } } } } },
+      scales: { x: { grid: { color: p.grid }, ticks: { color: p.sub } }, y: { grid: { display: false }, ticks: { color: p.ink, font: { weight: '600' } } } }
+    }
+  });
+  destroyChart('rate');
+  const rateData = byLoc.filter(r => r.available).map(r => ({ loc: r.location, rate: r.deployed / r.available * 100 })).sort((a, b) => b.rate - a.rate);
+  charts.rate = new Chart(document.getElementById('chartRate'), {
+    type: 'bar',
+    data: { labels: rateData.map(r => r.loc.toUpperCase()), datasets: [{ data: rateData.map(r => r.rate), backgroundColor: rateData.map(r => r.rate >= 65 ? p.ink : (r.rate >= 40 ? p.shades[2] : p.shades[5])) }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { ...tooltipBase(p), callbacks: { label: ctx => 'Rate : ' + ctx.raw.toFixed(0) + '%' } } }, scales: { x: { grid: { display: false }, ticks: { color: p.ink, font: { weight: '600' } } }, y: { min: 0, max: 100, grid: { color: p.grid }, ticks: { color: p.sub, callback: v => v + '%' } } } }
+  });
+  destroyChart('sd');
+  const sdData = byLoc.filter(r => r.sd > 0).sort((a, b) => b.sd - a.sd);
+  charts.sd = new Chart(document.getElementById('chartSd'), {
+    type: 'doughnut',
+    data: { labels: sdData.map(r => r.location.toUpperCase()), datasets: [{ data: sdData.map(r => r.sd), backgroundColor: p.shades.slice(0, sdData.length), borderColor: p.bg, borderWidth: 2, hoverOffset: 6 }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'right', labels: { color: p.muted, padding: 10, font: { size: 10 } } }, tooltip: { ...tooltipBase(p), callbacks: { label: ctx => { const total = sdData.reduce((s, r) => s + r.sd, 0); return `${ctx.raw.toLocaleString()} cards   ${(ctx.raw / total * 100).toFixed(0)}%`; } } } } }
+  });
+}
+
+function buildInsights(recs, byLoc, totals, sd, prevRecs) {
+  const ins = [];
+  const ended = recs.filter(r => r.deployed === 0 && r.available > 0);
+  if (ended.length) {
+    const totIdle = ended.reduce((s, r) => s + r.sd, 0);
+    ins.push({ tag: 'Critical', cls: 'bad', title: ended.length + ' Deployment' + (ended.length > 1 ? 's' : '') + ' Ended',
+      body: ended.map(r => `${r.location} ${r.factory} shows 0 of ${r.available} with ${r.ops} ops still logged`).join(' . ') + (totIdle ? ` . ${totIdle} SD cards idle on site` : '') + ' . Consider redeployment .' });
+  }
+  const zeroSd = byLoc.filter(b => b.sd === 0 && b.available > 0);
+  if (zeroSd.length) {
+    ins.push({ tag: 'Critical', cls: 'bad', title: 'Zero SD Buffer In ' + zeroSd.length + ' Location' + (zeroSd.length > 1 ? 's' : ''),
+      body: zeroSd.map(z => `${z.location} holds 0 SD cards with ${fmt(z.deployed)} of ${fmt(z.available)} out`).join(' . ') + ' . Escalate replenishment .' });
+  }
+  const below = byLoc.filter(b => b.available && b.deployed > 0 && b.deployed / b.available < 0.4);
+  if (below.length) {
+    ins.push({ tag: 'Warning', cls: 'warn', title: below.length + ' Location' + (below.length > 1 ? 's' : '') + ' Below 40%',
+      body: below.map(b => `${b.location} at ${(b.deployed / b.available * 100).toFixed(0)}% , ${fmt(b.deployed)} of ${fmt(b.available)}`).join(' . ') + ' .' });
+  }
+  const topSd = [...byLoc].sort((a, b) => b.sd - a.sd)[0];
+  if (topSd && sd > 0 && topSd.sd / sd > 0.4) {
+    ins.push({ tag: 'Warning', cls: 'warn', title: `${topSd.location} Holds ${(topSd.sd / sd * 100).toFixed(0)}% Of SD Inventory`,
+      body: `${fmt(topSd.sd)} of ${fmt(sd)} total SD cards sit in ${topSd.location} . Reallocation opportunity to locations running low .` });
+  }
+  const biggest = [...byLoc].sort((a, b) => b.deployed - a.deployed)[0];
+  if (biggest) {
+    ins.push({ tag: 'Healthy', cls: 'info', title: `${biggest.location} Largest Active Footprint`,
+      body: `${fmt(biggest.deployed)} devices across ${biggest.factories.length} factor${biggest.factories.length > 1 ? 'ies' : 'y'} with ${biggest.ops} operators .` });
+  }
+  if (prevRecs.length) {
+    const prev = prevRecs.reduce((s, r) => s + r.deployed, 0);
+    const cur = totals.dep;
+    const pct = prev ? ((cur - prev) / prev * 100).toFixed(1) : 0;
+    ins.push({ tag: 'Trend', cls: 'info', title: `Day Over Day ${cur >= prev ? '▲' : '▼'} ${Math.abs(pct)}%`,
+      body: `${fmt(cur)} devices deployed today vs ${fmt(prev)} on previous day . Net change ${cur - prev >= 0 ? '+' : ''}${fmt(cur - prev)} devices .` });
+  }
+  if (ins.length % 2 === 1) {
+    const zero = recs.filter(r => r.sd === 0).length;
+    ins.push({ tag: 'Notes', cls: 'info', title: 'Snapshot Metadata',
+      body: `${recs.length} factory records . ${zero} records with zero SD . Pooled SD values are deduplicated at location level for totals .` });
+  }
+  return ins;
+}
+
+// ---------- WEEKLY VIEW ----------
+const weekPicker = document.getElementById('weekPicker');
+weekPicker.addEventListener('change', e => { weekEnd = e.target.value; rerender(); });
+document.getElementById('prevWeek').addEventListener('click', () => { weekEnd = addDays(weekEnd, -7); weekPicker.value = weekEnd; rerender(); });
+document.getElementById('nextWeek').addEventListener('click', () => { weekEnd = addDays(weekEnd,  7); weekPicker.value = weekEnd; rerender(); });
+document.querySelectorAll('#shiftToggleWeek .btn').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#shiftToggleWeek .btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active'); weekShift = b.dataset.shift; rerender();
+  });
+});
+
+function renderWeek() {
+  const content = document.getElementById('weekContent');
+  if (!weekEnd) weekEnd = latestDate();
+  const end = new Date(weekEnd);
+  const start = new Date(end); start.setDate(start.getDate() - 6);
+  const startStr = iso(start);
+  const daysInRange = [];
+  for (let i = 0; i < 7; i++) { const d = new Date(start); d.setDate(start.getDate() + i); daysInRange.push(iso(d)); }
+  const weekRecs = STATE.filter(r => r.date >= startStr && r.date <= weekEnd && (weekShift === 'all' || r.shift === weekShift));
+  const daysWithData = [...new Set(weekRecs.map(r => r.date))];
+  if (!weekRecs.length) {
+    content.innerHTML = `<div class="empty">No data for week ending ${weekEnd}${weekShift !== 'all' ? ' / ' + weekShift + ' shift' : ''} .<br>Available dates : ${allDates().join(' , ')}</div>`;
+    destroyChart('wTrend'); destroyChart('wLocStack'); destroyChart('wMovers');
+    return;
+  }
+  const dailyTotals = daysInRange.map(d => {
+    const recs = weekRecs.filter(r => r.date === d);
+    const dep = recs.reduce((s, r) => s + r.deployed, 0);
+    const avail = recs.reduce((s, r) => s + r.available, 0);
+    const ops = recs.reduce((s, r) => s + r.ops, 0);
+    const sd = totalSD(recs);
+    return { date: d, dep, avail, ops, sd, rate: avail ? dep / avail * 100 : 0, count: recs.length };
+  });
+  const weekTot = dailyTotals.reduce((s, d) => ({ dep: s.dep + d.dep, avail: s.avail + d.avail, ops: s.ops + d.ops }), { dep: 0, avail: 0, ops: 0 });
+  const weekRate = weekTot.avail ? (weekTot.dep / weekTot.avail * 100) : 0;
+  const avgOps = daysWithData.length ? weekTot.ops / daysWithData.length : 0;
+  const avgDep = daysWithData.length ? weekTot.dep / daysWithData.length : 0;
+  const firstD = daysWithData[0], lastD = daysWithData[daysWithData.length - 1];
+  const byLocFirst = sumByLocation(weekRecs.filter(r => r.date === firstD));
+  const byLocLast  = sumByLocation(weekRecs.filter(r => r.date === lastD));
+  const locMap = {};
+  byLocFirst.forEach(l => locMap[l.location] = { location: l.location, firstDep: l.deployed, lastDep: 0 });
+  byLocLast.forEach(l => { if (!locMap[l.location]) locMap[l.location] = { location: l.location, firstDep: 0, lastDep: l.deployed }; else locMap[l.location].lastDep = l.deployed; });
+  const movers = Object.values(locMap).map(m => ({ ...m, delta: m.lastDep - m.firstDep })).sort((a, b) => b.delta - a.delta);
+
+  content.innerHTML = `
+    <div class="kpi-grid">
+      <div class="kpi"><div class="label">Week Range</div><div class="value" style="font-size: 18px;">${startStr.slice(5)} — ${weekEnd.slice(5)}</div><div class="hint">${daysWithData.length} Days With Data</div></div>
+      <div class="kpi"><div class="label">Avg Deployed Per Day</div><div class="value">${fmt(Math.round(avgDep))}</div><div class="hint">Week Total ${fmt(weekTot.dep)}</div></div>
+      <div class="kpi"><div class="label">Avg Rate</div><div class="value">${weekRate.toFixed(0)}%</div><div class="hint">Across ${daysWithData.length} Days</div></div>
+      <div class="kpi"><div class="label">Avg Ops On Floor</div><div class="value">${avgOps.toFixed(0)}</div><div class="hint">Per Active Day</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom: 16px;">
+      <h3>7 Day Deployment Trend</h3>
+      <div class="chart-box lg"><canvas id="chartTrend"></canvas></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h3>Location Stack ${firstD} vs ${lastD}</h3>
+        <div class="chart-box"><canvas id="chartMovers"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>Top Movers</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Location</th><th class="num">First (${firstD.slice(5)})</th><th class="num">Last (${lastD.slice(5)})</th><th class="num">Δ Devices</th></tr></thead>
+          <tbody>${movers.slice(0, 10).map(m => `<tr><td class="loc">${m.location}</td><td class="num">${fmt(m.firstDep)}</td><td class="num">${fmt(m.lastDep)}</td><td class="num" style="font-weight:700;">${m.delta >= 0 ? '▲' : '▼'} ${fmt(Math.abs(m.delta))}</td></tr>`).join('')}</tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <div class="section-title">Weekly Insights</div>
+    <div class="insights">
+      ${buildWeekInsights(weekRecs, dailyTotals, movers, daysWithData).map(ins => `
+        <div class="insight ${ins.cls}"><span class="tag">${ins.tag}</span><div class="title">${ins.title}</div><div class="body">${ins.body}</div></div>
+      `).join('')}
+    </div>`;
+
+  const p = palette();
+  destroyChart('wTrend');
+  charts.wTrend = new Chart(document.getElementById('chartTrend'), {
+    type: 'line',
+    data: { labels: dailyTotals.map(d => d.date.slice(5)), datasets: [
+      { label: 'Deployed', data: dailyTotals.map(d => d.dep || null), borderColor: p.ink, backgroundColor: 'transparent', tension: 0.1, pointBackgroundColor: p.ink, pointRadius: 4, borderWidth: 2, spanGaps: true },
+      { label: 'Available', data: dailyTotals.map(d => d.avail || null), borderColor: p.muted, borderDash: [4, 4], backgroundColor: 'transparent', tension: 0.1, pointBackgroundColor: p.muted, pointRadius: 3, borderWidth: 1.5, spanGaps: true }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { color: p.muted, font: { size: 10, weight: '600' } } }, tooltip: tooltipBase(p) },
+      scales: { x: { grid: { color: p.grid }, ticks: { color: p.ink, font: { weight: '600' } } }, y: { grid: { color: p.grid }, ticks: { color: p.sub } } } }
+  });
+  destroyChart('wMovers');
+  charts.wMovers = new Chart(document.getElementById('chartMovers'), {
+    type: 'bar',
+    data: { labels: movers.map(m => m.location.toUpperCase()), datasets: [
+      { label: firstD, data: movers.map(m => m.firstDep), backgroundColor: p.shades[5] },
+      { label: lastD,  data: movers.map(m => m.lastDep),  backgroundColor: p.ink }
+    ]},
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { color: p.muted, font: { size: 10, weight: '600' } } }, tooltip: tooltipBase(p) },
+      scales: { x: { grid: { display: false }, ticks: { color: p.ink, font: { weight: '600', size: 9 }, maxRotation: 45, minRotation: 45 } }, y: { grid: { color: p.grid }, ticks: { color: p.sub } } } }
+  });
+}
+
+function buildWeekInsights(recs, dailyTotals, movers, daysWithData) {
+  const ins = [];
+  const topUp = movers.filter(m => m.delta > 0)[0];
+  const topDown = movers.filter(m => m.delta < 0).sort((a, b) => a.delta - b.delta)[0];
+  if (topUp && topUp.delta > 10) ins.push({ tag: 'Mover', cls: 'info', title: `${topUp.location} Up ${fmt(topUp.delta)} Devices`, body: `Grew from ${fmt(topUp.firstDep)} to ${fmt(topUp.lastDep)} across the window . Biggest positive change .` });
+  if (topDown && topDown.delta < -10) ins.push({ tag: 'Mover', cls: 'bad', title: `${topDown.location} Down ${fmt(Math.abs(topDown.delta))} Devices`, body: `Dropped from ${fmt(topDown.firstDep)} to ${fmt(topDown.lastDep)} . Biggest negative change .` });
+  const bestDay  = [...dailyTotals].filter(d => d.count > 0).sort((a, b) => b.rate - a.rate)[0];
+  const worstDay = [...dailyTotals].filter(d => d.count > 0).sort((a, b) => a.rate - b.rate)[0];
+  if (bestDay)  ins.push({ tag: 'Peak',   cls: 'info', title: `Best Rate ${bestDay.rate.toFixed(0)}% On ${bestDay.date}`,  body: `${fmt(bestDay.dep)} of ${fmt(bestDay.avail)} devices , ${bestDay.ops} ops .` });
+  if (worstDay && bestDay && worstDay.date !== bestDay.date) ins.push({ tag: 'Trough', cls: 'warn', title: `Low Rate ${worstDay.rate.toFixed(0)}% On ${worstDay.date}`, body: `${fmt(worstDay.dep)} of ${fmt(worstDay.avail)} devices , ${worstDay.ops} ops .` });
+  if (daysWithData.length < 7) ins.push({ tag: 'Coverage', cls: 'warn', title: `${daysWithData.length} Of 7 Days Have Data`, body: `Missing days : ${dailyTotals.filter(d => d.count === 0).map(d => d.date.slice(5)).join(' , ')} .` });
+  if (ins.length % 2 === 1) ins.push({ tag: 'Summary', cls: 'info', title: 'Week Summary', body: `${recs.length} factory records across ${daysWithData.length} day${daysWithData.length > 1 ? 's' : ''} of data .` });
+  return ins;
+}
+
+// ---------- LOCATION VIEW ----------
+function refreshLocSelect() {
+  const sel = document.getElementById('locSelect');
+  const locs = [...new Set(STATE.map(r => r.location))].sort();
+  const prev = curLoc;
+  sel.innerHTML = locs.map(l => `<option value="${l}">${l.toUpperCase()}</option>`).join('');
+  if (prev && locs.includes(prev)) sel.value = prev;
+  else curLoc = locs[0];
+  if (curLoc) sel.value = curLoc;
+}
+document.getElementById('locSelect').addEventListener('change', e => { curLoc = e.target.value; rerender(); });
+document.querySelectorAll('#metricToggle .btn').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#metricToggle .btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active'); curMetric = b.dataset.metric; rerender();
+  });
+});
+
+function renderLocation() {
+  const content = document.getElementById('locContent');
+  refreshLocSelect();
+  if (!curLoc) { content.innerHTML = '<div class="empty">No locations in data</div>'; return; }
+  const dates = allDates();
+  const rows = dates.map(d => {
+    const recs = STATE.filter(r => r.location === curLoc && r.date === d);
+    const dep = recs.reduce((s, r) => s + r.deployed, 0);
+    const avail = recs.reduce((s, r) => s + r.available, 0);
+    const ops = recs.reduce((s, r) => s + r.ops, 0);
+    const sd = totalSD(recs);
+    return { date: d, dep, avail, ops, sd, rate: avail ? dep / avail * 100 : 0, recs };
+  }).filter(r => r.recs.length);
+  if (!rows.length) { content.innerHTML = '<div class="empty">No data for ' + curLoc + '</div>'; destroyChart('locTrend'); return; }
+
+  const metricMap = {
+    dep: { label: 'Deployed Devices', getter: r => r.dep },
+    rate:{ label: 'Deployment Rate %', getter: r => r.rate },
+    ops: { label: 'Operators On Floor', getter: r => r.ops },
+    sd:  { label: 'SD Cards', getter: r => r.sd },
+  };
+  const m = metricMap[curMetric];
+  const latest = rows[rows.length - 1];
+  const first  = rows[0];
+  const delta  = m.getter(latest) - m.getter(first);
+
+  content.innerHTML = `
+    <div class="kpi-grid">
+      <div class="kpi"><div class="label">Location</div><div class="value" style="font-size:18px;">${curLoc.toUpperCase()}</div><div class="hint">${rows.length} Data Points</div></div>
+      <div class="kpi"><div class="label">Latest ${m.label}</div><div class="value">${typeof m.getter(latest) === 'number' && curMetric === 'rate' ? m.getter(latest).toFixed(0) + '%' : fmt(Math.round(m.getter(latest)))}</div><div class="hint">On ${latest.date}</div></div>
+      <div class="kpi"><div class="label">Change Since ${first.date.slice(5)}</div><div class="value" style="font-size:22px;">${delta >= 0 ? '▲' : '▼'} ${curMetric === 'rate' ? Math.abs(delta).toFixed(1) + 'pp' : fmt(Math.abs(Math.round(delta)))}</div><div class="hint">${curMetric}</div></div>
+      <div class="kpi"><div class="label">Factories Tracked</div><div class="value">${new Set(STATE.filter(r => r.location === curLoc).map(r => r.factory)).size}</div><div class="hint">In ${curLoc}</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom: 16px;">
+      <h3>${m.label} Trend · ${curLoc}</h3>
+      <div class="chart-box lg"><canvas id="chartLocTrend"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h3>Daily Records</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Date</th><th>Factory</th><th>Shift</th><th class="num">Ops</th><th class="num">Deployed / Avail.</th><th>Rate</th><th class="num">SD</th></tr></thead>
+        <tbody>${STATE.filter(r => r.location === curLoc).sort((a, b) => a.date.localeCompare(b.date)).map(r => {
+          const rt = r.available ? (r.deployed / r.available * 100) : 0;
+          return `<tr><td class="loc">${r.date}</td><td class="fact">${r.factory}</td><td class="fact">${r.shift}</td><td class="num">${r.ops}</td><td class="num">${fmt(r.deployed)} / ${fmt(r.available)}</td><td><div class="rate-cell"><span class="pct">${rt.toFixed(0)}%</span><div class="bar"><div class="fill" style="width: ${Math.min(rt,100)}%;"></div></div></div></td><td class="num">${fmt(r.sd)}</td></tr>`;
+        }).join('')}</tbody>
+      </table></div>
+    </div>`;
+
+  const p = palette();
+  destroyChart('locTrend');
+  charts.locTrend = new Chart(document.getElementById('chartLocTrend'), {
+    type: 'line',
+    data: { labels: rows.map(r => r.date), datasets: [{ label: m.label, data: rows.map(m.getter), borderColor: p.ink, backgroundColor: p.panel2, fill: true, tension: 0.15, pointBackgroundColor: p.ink, pointRadius: 5, borderWidth: 2 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: tooltipBase(p) }, scales: { x: { grid: { color: p.grid }, ticks: { color: p.ink, font: { weight: '600' } } }, y: { grid: { color: p.grid }, ticks: { color: p.sub, callback: v => curMetric === 'rate' ? v + '%' : v } } } }
+  });
+}
+
+// ---------- RERENDER ----------
+function rerender() {
+  const sub = document.getElementById('brandSub');
+  sub.textContent = (curDate || '—') + '   //   ' + allDates().length + ' Days Of Data';
+  const active = document.querySelector('.tab.active').dataset.view;
+  if (active === 'day')      renderDay();
+  else if (active === 'week')     renderWeek();
+  else if (active === 'location') renderLocation();
+}
+
+// ---------- RANGE CONTROLS ----------
+function defaultRange() {
+  const to = new Date();
+  const from = new Date(); from.setDate(to.getDate() - 13);
+  return { from: iso(from), to: iso(to) };
+}
+(function initRange() {
+  const { from, to } = defaultRange();
+  RANGE_FROM = from; RANGE_TO = to;
+  document.getElementById('rangeFrom').value = from;
+  document.getElementById('rangeTo').value   = to;
+  document.getElementById('rangeFrom').onchange = e => { RANGE_FROM = e.target.value; };
+  document.getElementById('rangeTo').onchange   = e => { RANGE_TO   = e.target.value; };
+})();
+
+document.getElementById('refreshBtn').addEventListener('click', () => loadFromBackend(RANGE_FROM, RANGE_TO));
+
+// ---------- BOOTSTRAP ----------
+async function bootstrap() {
+  if (!token()) return redirectToLogin();
+  let res;
+  try { res = await fetch(API + "/auth/verify?token=" + encodeURIComponent(token())); }
+  catch (e) { return showBanner("err", "Network error: " + e.message); }
+  if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
+  if (!res.ok) return showBanner("err", "Auth check failed: " + res.status);
+  const { user } = await res.json();
+  if (user.role === "owner") user.role = "freddy";
+  if (!["freddy","general","chief","viewer"].includes(user.role)) {
+    return showBanner("err", `Signed in as ${user.email} (role: ${user.role || "none"}). Analytics is for Freddys, generals, chiefs, and viewers.`);
+  }
+  whoEl.textContent = `${user.email} · ${user.role}`;
+  await loadFromBackend(RANGE_FROM, RANGE_TO);
+}
+
+bootstrap();
 </script>
 </body>
 </html>
