@@ -5,7 +5,7 @@ import json
 import os
 import re
 
-from deps import require_current_role, require_op_access
+from deps import require_current_role
 from crypto import encrypt, hash_pan
 from exif import extract_gps
 from geo import haversine_m
@@ -87,7 +87,8 @@ async def submit_daily(
     photos: List[UploadFile] = File(default_factory=list),
     claims: dict = Depends(reporter_or_admin),
 ):
-    await require_op_access(request, claims, op_id)
+    # Role-gated but not assignment-gated - any chief/captain may submit on
+    # behalf of any active op. The submitter_email column records who did it.
 
     try:
         body = json.loads(payload)

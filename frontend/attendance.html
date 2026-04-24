@@ -285,7 +285,7 @@
   async function loadOpList() {
     if (!token()) return redirectToLogin();
     let res;
-    try { res = await fetch(API + "/api/ops", { headers: { Authorization: "Bearer " + token() } }); }
+    try { res = await fetch(API + "/api/ops?for_reporting=1", { headers: { Authorization: "Bearer " + token() } }); }
     catch (e) { return showBanner("err", "Network error: " + e.message); }
     if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
     if (res.status === 403) { return showBanner("err", "Not authorized to submit attendance."); }

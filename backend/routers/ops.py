@@ -159,6 +159,10 @@ async def create_op(body: OpIn, request: Request, claims: dict = Depends(general
 async def list_ops(
     request: Request,
     include: Optional[str] = Query(None, description="comma list: assignments,today"),
+    for_reporting: bool = Query(
+        False,
+        description="If true, chiefs/captains see every active op (used by the /report + /attendance dropdowns). Editing endpoints still enforce assignment.",
+    ),
     claims: dict = Depends(any_role),
 ):
     wants = {x.strip() for x in (include or "").split(",") if x.strip()}
@@ -190,11 +194,18 @@ async def list_ops(
     extras_sql = (", " + ", ".join(select_extras)) if select_extras else ""
     joins_sql  = "\n".join(joins)
 
-    if claims["role"] in ("freddy", "general"):
+    # Admins always see everything. Chiefs/captains normally see only ops they're
+    # assigned to (captain home page, chief-admin roster); for_reporting=true
+    # unlocks the full active-op list so any chief can file a report for any op.
+    sees_all = claims["role"] in ("freddy", "general") or for_reporting
+
+    if sees_all:
+        where = "" if claims["role"] in ("freddy", "general") else "WHERE o.is_active = TRUE"
         sql = f"""
             SELECT o.*{extras_sql}
               FROM operations o
               {joins_sql}
+              {where}
              ORDER BY o.factory_name, o.shift
         """
         if "today" in wants:

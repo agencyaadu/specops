@@ -7,7 +7,7 @@ try:
 except ImportError:  # pragma: no cover
     from backports.zoneinfo import ZoneInfo  # type: ignore
 
-from deps import require_current_role, require_op_access
+from deps import require_current_role
 
 router = APIRouter()
 
@@ -51,7 +51,9 @@ async def get_op_context(
     date_str: Optional[str] = Query(None, alias="date"),
     claims: dict = Depends(reporter_or_admin),
 ):
-    await require_op_access(request, claims, op_id)
+    # Reporting is role-gated but not assignment-gated. Any chief/captain can
+    # pull any active op's context so they can cover for each other when the
+    # assigned person is unavailable. Edit/assign flows keep their checks.
     db = request.app.state.db
     row = await db.fetchrow("SELECT * FROM operations WHERE op_id = $1", op_id)
     if not row:

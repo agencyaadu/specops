@@ -377,7 +377,10 @@
     if (!token()) return redirectToLogin();
     let res;
     try {
-      res = await fetch(API + "/api/ops", {
+      // for_reporting=1: the reporting dropdown lists every active op, not just
+      // the ones this chief is assigned to. Editing/assignment endpoints still
+      // enforce assignment on the backend.
+      res = await fetch(API + "/api/ops?for_reporting=1", {
         headers: { Authorization: "Bearer " + token() },
       });
     } catch (e) { return showBanner("err", "Network error: " + e.message); }
