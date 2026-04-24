@@ -41,8 +41,11 @@ def _validate_unique_id(value: str) -> None:
 
 _DAILY_INT_FIELDS  = ["chiefs", "captains", "operators", "sd_cards_used", "sd_cards_left",
                       "devices_available", "devices_deployed", "devices_lost", "devices_recovered"]
-_DAILY_NUM_FIELDS  = ["good_hours_projected", "good_hours_actual"]
-_DAILY_TIME_FIELDS = ["actual_reporting_time", "time_leaving"]
+# good_hours_* and time_leaving columns still exist in the DB but are no longer
+# captured - reports are filed in the morning at deployment, so end-of-day metrics
+# don't apply yet. Old rows keep their historical values.
+_DAILY_NUM_FIELDS  = []
+_DAILY_TIME_FIELDS = ["actual_reporting_time"]
 
 def _ext_for_mime(mime: str) -> str:
     return {"image/jpeg": ".jpg", "image/heic": ".heic", "image/heif": ".heif"}.get(mime, ".bin")
@@ -210,6 +213,10 @@ async def submit_daily(
             for k in _DAILY_TIME_FIELDS:
                 daily_vals[k] = _validate_time_str(daily.get(k))
 
+            # good_hours_projected / good_hours_actual / time_leaving columns still
+            # exist but are omitted - reports file in the morning at deployment, so
+            # end-of-day metrics are collected elsewhere. On resubmit we NULL them
+            # to avoid carrying over stale values.
             report_id = await conn.fetchval(
                 """
                 INSERT INTO daily_reports (
@@ -217,17 +224,15 @@ async def submit_daily(
                     chiefs, captains, operators,
                     sd_cards_used, sd_cards_left,
                     devices_available, devices_deployed, devices_lost, devices_recovered,
-                    good_hours_projected, good_hours_actual,
-                    actual_reporting_time, time_leaving,
+                    actual_reporting_time,
                     submitted_by_email
                 ) VALUES (
                     $1, $2,
                     $3, $4, $5,
                     $6, $7,
                     $8, $9, $10, $11,
-                    $12, $13,
-                    $14, $15,
-                    $16
+                    $12,
+                    $13
                 )
                 ON CONFLICT (op_id, report_date) DO UPDATE SET
                     chiefs = EXCLUDED.chiefs,
@@ -239,10 +244,10 @@ async def submit_daily(
                     devices_deployed = EXCLUDED.devices_deployed,
                     devices_lost = EXCLUDED.devices_lost,
                     devices_recovered = EXCLUDED.devices_recovered,
-                    good_hours_projected = EXCLUDED.good_hours_projected,
-                    good_hours_actual = EXCLUDED.good_hours_actual,
+                    good_hours_projected = NULL,
+                    good_hours_actual = NULL,
                     actual_reporting_time = EXCLUDED.actual_reporting_time,
-                    time_leaving = EXCLUDED.time_leaving,
+                    time_leaving = NULL,
                     submitted_by_email = EXCLUDED.submitted_by_email,
                     submitted_at = NOW()
                 RETURNING id
@@ -252,8 +257,7 @@ async def submit_daily(
                 daily_vals["sd_cards_used"], daily_vals["sd_cards_left"],
                 daily_vals["devices_available"], daily_vals["devices_deployed"],
                 daily_vals["devices_lost"], daily_vals["devices_recovered"],
-                daily_vals["good_hours_projected"], daily_vals["good_hours_actual"],
-                daily_vals["actual_reporting_time"], daily_vals["time_leaving"],
+                daily_vals["actual_reporting_time"],
                 claims.get("email", ""),
             )
 

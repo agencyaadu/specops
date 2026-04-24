@@ -140,15 +140,9 @@
           <div class="field"><label>Lost</label><input type="number" min="0" id="d-dev-lost" /></div>
           <div class="field"><label>Recovered</label><input type="number" min="0" id="d-dev-rec" /></div>
         </div>
-        <div class="sub-label">Good Hours</div>
-        <div class="row2">
-          <div class="field"><label>Projected</label><input type="number" min="0" step="0.1" id="d-gh-proj" /></div>
-          <div class="field"><label>Actual</label><input type="number" min="0" step="0.1" id="d-gh-act" /></div>
-        </div>
-        <div class="sub-label">Times</div>
+        <div class="sub-label">Reporting Time</div>
         <div class="row2">
           <div class="field"><label>Actual Reporting Time</label><input type="time" id="d-art" /></div>
-          <div class="field"><label>Time Leaving</label><input type="time" id="d-tl" /></div>
         </div>
       </div>
     </section>
@@ -277,7 +271,7 @@
     const daily = {};
     ["d-chiefs","d-captains","d-operators","d-sd-used","d-sd-left",
      "d-dev-avail","d-dev-dep","d-dev-lost","d-dev-rec",
-     "d-gh-proj","d-gh-act","d-art","d-tl"].forEach(id => {
+     "d-art"].forEach(id => {
       daily[id] = document.getElementById(id)?.value ?? "";
     });
     const events = [...document.querySelectorAll(".event-row")].map(r => ({
@@ -842,10 +836,7 @@
       devices_deployed:     numVal("d-dev-dep"),
       devices_lost:         numVal("d-dev-lost"),
       devices_recovered:    numVal("d-dev-rec"),
-      good_hours_projected: numVal("d-gh-proj"),
-      good_hours_actual:    numVal("d-gh-act"),
       actual_reporting_time:strVal("d-art"),
-      time_leaving:         strVal("d-tl"),
     };
     const events = [...document.querySelectorAll(".event-row")].map(r => {
       const ts = r.querySelector(".ev-ts").value;
