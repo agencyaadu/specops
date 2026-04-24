@@ -69,8 +69,7 @@ async def dashboard(
           r.chiefs, r.captains, r.operators,
           r.sd_cards_used, r.sd_cards_left,
           r.devices_available, r.devices_deployed, r.devices_lost, r.devices_recovered,
-          r.good_hours_projected, r.good_hours_actual,
-          r.actual_reporting_time, r.time_leaving,
+          r.actual_reporting_time,
           COALESCE(ac.attendance_count, 0) AS attendance_count,
           COALESCE(ac.verified_count, 0)   AS verified_count
         FROM operations o
@@ -130,10 +129,7 @@ async def dashboard(
                 "devices_deployed":     r["devices_deployed"],
                 "devices_lost":         r["devices_lost"],
                 "devices_recovered":    r["devices_recovered"],
-                "good_hours_projected": float(r["good_hours_projected"]) if r["good_hours_projected"] is not None else None,
-                "good_hours_actual":    float(r["good_hours_actual"])    if r["good_hours_actual"]    is not None else None,
                 "actual_reporting_time":_fmt_time(r["actual_reporting_time"]),
-                "time_leaving":         _fmt_time(r["time_leaving"]),
             },
         })
 
@@ -199,8 +195,7 @@ async def dashboard_range(
           r.chiefs, r.captains, r.operators,
           r.sd_cards_used, r.sd_cards_left,
           r.devices_available, r.devices_deployed, r.devices_lost, r.devices_recovered,
-          r.good_hours_projected, r.good_hours_actual,
-          r.actual_reporting_time, r.time_leaving,
+          r.actual_reporting_time,
           COALESCE(ac.attendance_count, 0) AS attendance_count,
           COALESCE(ac.verified_count, 0)   AS verified_count
         FROM generate_series(${from_idx}::date, ${to_idx}::date, '1 day'::interval) AS d(day)
@@ -262,10 +257,7 @@ async def dashboard_range(
                 "devices_deployed":     r["devices_deployed"],
                 "devices_lost":         r["devices_lost"],
                 "devices_recovered":    r["devices_recovered"],
-                "good_hours_projected": float(r["good_hours_projected"]) if r["good_hours_projected"] is not None else None,
-                "good_hours_actual":    float(r["good_hours_actual"])    if r["good_hours_actual"]    is not None else None,
                 "actual_reporting_time":_fmt_time(r["actual_reporting_time"]),
-                "time_leaving":         _fmt_time(r["time_leaving"]),
             },
         })
 

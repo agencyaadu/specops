@@ -41,10 +41,6 @@ def _validate_unique_id(value: str) -> None:
 
 _DAILY_INT_FIELDS  = ["chiefs", "captains", "operators", "sd_cards_used", "sd_cards_left",
                       "devices_available", "devices_deployed", "devices_lost", "devices_recovered"]
-# good_hours_* and time_leaving columns still exist in the DB but are no longer
-# captured - reports are filed in the morning at deployment, so end-of-day metrics
-# don't apply yet. Old rows keep their historical values.
-_DAILY_NUM_FIELDS  = []
 _DAILY_TIME_FIELDS = ["actual_reporting_time"]
 
 def _ext_for_mime(mime: str) -> str:
@@ -214,16 +210,9 @@ async def submit_daily(
             for k in _DAILY_INT_FIELDS:
                 v = daily.get(k)
                 daily_vals[k] = int(v) if v not in (None, "") else None
-            for k in _DAILY_NUM_FIELDS:
-                v = daily.get(k)
-                daily_vals[k] = float(v) if v not in (None, "") else None
             for k in _DAILY_TIME_FIELDS:
                 daily_vals[k] = _validate_time_str(daily.get(k))
 
-            # good_hours_projected / good_hours_actual / time_leaving columns still
-            # exist but are omitted - reports file in the morning at deployment, so
-            # end-of-day metrics are collected elsewhere. On resubmit we NULL them
-            # to avoid carrying over stale values.
             report_id = await conn.fetchval(
                 """
                 INSERT INTO daily_reports (
@@ -251,10 +240,7 @@ async def submit_daily(
                     devices_deployed = EXCLUDED.devices_deployed,
                     devices_lost = EXCLUDED.devices_lost,
                     devices_recovered = EXCLUDED.devices_recovered,
-                    good_hours_projected = NULL,
-                    good_hours_actual = NULL,
                     actual_reporting_time = EXCLUDED.actual_reporting_time,
-                    time_leaving = NULL,
                     submitted_by_email = EXCLUDED.submitted_by_email,
                     submitted_at = NOW()
                 RETURNING id

@@ -303,8 +303,6 @@ function flattenDashboard(dash) {
       deployed:       Number(r.devices_deployed || 0),
       available:      Number(r.devices_available || 0),
       sd:             Number(r.sd_cards_left || 0),
-      gh_actual:      r.good_hours_actual    != null ? Number(r.good_hours_actual)    : null,
-      gh_projected:   r.good_hours_projected != null ? Number(r.good_hours_projected) : null,
       defected:       Number(r.devices_lost || 0),
       status_override: deriveStatus(op),
       notes:          "",
@@ -545,7 +543,7 @@ function renderDay() {
           <thead><tr>
             <th>Factory</th><th>Location</th><th>Team</th><th>POC</th><th>Shift</th>
             <th class="num">Ops</th><th class="num">Deployed / Avail.</th><th>Rate</th>
-            <th class="num">SD</th><th class="num">GH Act.</th><th class="num">GH Proj.</th><th>Status</th>
+            <th class="num">SD</th><th>Status</th>
           </tr></thead>
           <tbody>
             ${recs.map(r => {
@@ -554,8 +552,6 @@ function renderDay() {
               const st = r.status_override
                 ? { label: r.status_override, cls: /healthy/i.test(r.status_override) ? 'good' : (/below|low|warn/i.test(r.status_override) ? 'warn' : (/ended/i.test(r.status_override) ? 'bad' : 'muted')) }
                 : computed;
-              const ghA = r.gh_actual    != null ? Number(r.gh_actual).toFixed(1)    : '—';
-              const ghP = r.gh_projected != null ? Number(r.gh_projected).toFixed(1) : '—';
 
               // Team name links to the op's WhatsApp group if we have one. Falls back to plain text.
               const teamCell = r.team
@@ -594,8 +590,6 @@ function renderDay() {
                 <td class="num">${fmt(r.deployed)} / ${fmt(r.available)}</td>
                 <td><div class="rate-cell"><span class="pct">${rt.toFixed(0)}%</span><div class="bar"><div class="fill" style="width: ${Math.min(rt,100)}%;"></div></div></div></td>
                 <td class="num">${fmt(r.sd)}</td>
-                <td class="num" style="color: var(--muted);">${ghA}</td>
-                <td class="num" style="color: var(--muted);">${ghP}</td>
                 <td><span class="chip ${st.cls}">${st.label}</span>${actionBtn}</td>
               </tr>`;
             }).join('')}
