@@ -13,6 +13,9 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 
 # Keep in sync with the `rewrites` array in /vercel.json.
 REWRITES = [
+    # /r/:op_id is a permanent redirect on Vercel; for local dev we just
+    # rewrite it to keep behaviour identical without involving the redirect
+    # mechanism.
     (re.compile(r"^/r/[^/]+/?$"),     "/r.html"),
     (re.compile(r"^/report/?$"),       "/r.html"),
     (re.compile(r"^/report/[^/]+/?$"), "/r.html"),
