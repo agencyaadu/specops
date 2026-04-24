@@ -16,7 +16,7 @@ import json
 import os
 import re
 
-from deps import require_current_role
+from deps import require_current_role, require_op_access
 from crypto import encrypt, hash_pan
 from exif import extract_gps
 from geo import haversine_m
@@ -61,8 +61,9 @@ async def submit_attendance(
     photos: List[UploadFile] = File(default_factory=list),
     claims: dict = Depends(reporter_or_admin),
 ):
-    # Role-gated but not assignment-gated - same policy as daily.py so chiefs
-    # who are covering for each other can log attendance without admin help.
+    # Assignment-gated: chiefs/captains may only submit attendance for ops
+    # they're assigned to. Generals + Freddy can submit for any.
+    await require_op_access(request, claims, op_id)
 
     try:
         body = json.loads(payload)
