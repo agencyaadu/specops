@@ -276,6 +276,19 @@ async def list_ops(
         out.append(d)
     return {"rows": out}
 
+@router.post("/sync-sheet")
+async def sync_sheet(request: Request, _claims: dict = Depends(general_only)):
+    """Force a full sync of the Operations Google Sheets tab. The auto-sync
+    already fires on every create / patch / assignment change; this endpoint
+    is for one-shot backfills (e.g. after the sheet was wiped or the service
+    account was newly shared). Freddy + general only — sheet writes are global,
+    so chiefs don't see the button."""
+    if not _sheets.sheets_enabled():
+        raise HTTPException(503, "Google Sheets not configured (GOOGLE_SHEETS_ID / GOOGLE_SERVICE_ACCOUNT_JSON missing)")
+    n = await sync_ops_sheet_now(request.app.state.db)
+    return {"synced": n}
+
+
 @router.patch("/{op_id}")
 async def patch_op(op_id: str, body: OpPatch, request: Request, claims: dict = Depends(general_or_chief)):
     if claims["role"] not in ("freddy", "general"):

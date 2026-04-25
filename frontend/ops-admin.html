@@ -320,6 +320,7 @@
                 <span><span class="swatch red"></span>Inactive</span>
               </span>
             </div>
+            <button class="btn admin-only" id="sync-sheet-btn" title="Force a full rewrite of the Operations tab in the Google Sheet. Auto-sync runs on every change; this is for one-shot backfills.">Sync sheet</button>
             <button class="btn" id="show-new-op">+ New Op</button>
           </div>
           <div class="map-toolbar">
@@ -1164,6 +1165,30 @@ function locationToCoord(loc) {
     if (!res.ok) { alert("Remove failed: " + (j.detail || res.status)); return; }
     await loadAssignmentsInto(op_id);
     loadOps();
+  }
+
+  // ---------- sync sheet (freddy/general only — admin-only class hides for chiefs) ----------
+  const syncBtn = document.getElementById("sync-sheet-btn");
+  if (syncBtn) {
+    syncBtn.onclick = async () => {
+      const orig = syncBtn.textContent;
+      syncBtn.disabled = true;
+      syncBtn.textContent = "Syncing…";
+      try {
+        const res = await SpecAuth.fetchAuth("/api/ops/sync-sheet", { method: "POST" });
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          showBanner("err", "Sheet sync failed: " + (j.detail || res.status));
+        } else {
+          showBanner("ok", `Synced ${j.synced} operations to the sheet.`);
+        }
+      } catch (e) {
+        showBanner("err", "Sheet sync failed: " + e.message);
+      } finally {
+        syncBtn.disabled = false;
+        syncBtn.textContent = orig;
+      }
+    };
   }
 
   // ---------- modal: new op ----------
