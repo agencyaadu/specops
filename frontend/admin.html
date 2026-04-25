@@ -240,7 +240,8 @@
           <input type="text" id="search" placeholder="Search name or email..." />
           <span class="count" id="count">-</span>
           <button type="button" class="btn" onclick="loadList()">Refresh</button>
-          <button type="button" class="btn" id="sync-btn" onclick="syncSheets()">Sync Sheets</button>
+          <button type="button" class="btn" id="sync-btn" onclick="syncSheets()">Sync Submissions</button>
+          <button type="button" class="btn" id="sync-ops-btn" onclick="syncOpsSheet()">Sync Operations</button>
         </div>
         <div class="log" id="sync-log" style="margin-top:8px"></div>
         <div id="table-wrap" style="margin-top:16px">
@@ -264,7 +265,9 @@
 </div>
 
 <script>
-const API = window.BACKEND_URL || 'http://localhost:8000';
+// Use ?? (not ||) — config.js sets BACKEND_URL = '' in prod for same-origin
+// fetches; empty string is falsy so || would defeat that and route to localhost.
+const API = window.BACKEND_URL ?? 'http://localhost:8000';
 const TOKEN_KEY = 'admin_token';
 
 /* --- theme --- */
@@ -484,7 +487,7 @@ async function syncSheets() {
   if (!token) { showLogin(); return; }
   const btn = document.getElementById('sync-btn');
   btn.disabled = true;
-  setLog('sync-log', 'Syncing to Google Sheets...', '');
+  setLog('sync-log', 'Syncing submissions to Google Sheets...', '');
   try {
     const res = await fetch(API + '/admin/sync-sheets', {
       method: 'POST',
@@ -492,7 +495,28 @@ async function syncSheets() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'sync failed');
-    setLog('sync-log', 'Synced ' + data.synced + ' rows to Google Sheets.', 'ok');
+    setLog('sync-log', 'Synced ' + data.synced + ' submission rows.', 'ok');
+  } catch (err) {
+    setLog('sync-log', err.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function syncOpsSheet() {
+  const token = getToken();
+  if (!token) { showLogin(); return; }
+  const btn = document.getElementById('sync-ops-btn');
+  btn.disabled = true;
+  setLog('sync-log', 'Syncing operations to Google Sheets...', '');
+  try {
+    const res = await fetch(API + '/admin/sync-ops-sheet', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'sync failed');
+    setLog('sync-log', 'Synced ' + data.synced + ' operations to the "Operations" tab.', 'ok');
   } catch (err) {
     setLog('sync-log', err.message, 'err');
   } finally {

@@ -681,10 +681,9 @@ function locationToCoord(loc) {
 }
 </script>
 
+<script src="/assets/auth.js"></script>
 <script>
 (function () {
-  const API     = window.BACKEND_URL;
-  const TOKEN_K = "spec_token";
   const whoEl   = document.getElementById("who");
   const banner  = document.getElementById("status-banner");
   const appEl   = document.getElementById("app");
@@ -707,41 +706,14 @@ function locationToCoord(loc) {
   let selectedOpId = null;
 
   // ---------- token + auth ----------
-  (function captureToken() {
-    const p = new URLSearchParams(location.search);
-    const t = p.get("token");
-    if (t) {
-      localStorage.setItem(TOKEN_K, t);
-      p.delete("token");
-      const qs = p.toString();
-      history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
-    }
-  })();
+  // Boilerplate (token capture, sign-out, redirect-to-login) lives in /assets/auth.js (SpecAuth).
+  function showBanner(cls, msg) { SpecAuth.banner(banner, cls, msg); }
 
-  function token() { return localStorage.getItem(TOKEN_K) || ""; }
-  function authHdr() { return { Authorization: "Bearer " + token() }; }
-  function redirectToLogin() {
-    location.href = API + "/auth/google?next=" + encodeURIComponent(location.pathname);
-  }
-  function showBanner(cls, msg) {
-    banner.className = "banner " + cls;
-    banner.textContent = msg;
-    banner.classList.remove("hidden");
-  }
-
-  document.getElementById("signout").onclick = function () {
-    localStorage.removeItem(TOKEN_K); location.reload();
-  };
+  SpecAuth.wireSignout();
 
   async function bootstrap() {
-    if (!token()) return redirectToLogin();
-    let res;
-    try { res = await fetch(API + "/auth/verify?token=" + encodeURIComponent(token())); }
-    catch (e) { return showBanner("err", "Network error: " + e.message); }
-    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
-    if (!res.ok) return showBanner("err", "Auth check failed: " + res.status);
-    const { user } = await res.json();
-    if (user.role === "owner") user.role = "freddy";
+    let user;
+    try { user = await SpecAuth.verify(banner); } catch { return; }
     if (!["freddy", "general", "chief"].includes(user.role)) {
       return showBanner("err",
         `Signed in as ${user.email} (role: ${user.role || "none"}). This page is for Freddys, generals, and chiefs.`);
@@ -1001,7 +973,7 @@ function locationToCoord(loc) {
 
   // ---------- data ----------
   async function loadOps() {
-    const res = await fetch(API + "/api/ops?include=assignments,today", { headers: authHdr() });
+    const res = await SpecAuth.fetchAuth("/api/ops?include=assignments,today");
     if (!res.ok) { showBanner("err", "Failed to load ops: " + res.status); return; }
     const { rows } = await res.json();
     opsCache = rows;
@@ -1011,8 +983,8 @@ function locationToCoord(loc) {
   }
 
   async function toggleOpActive(op_id, currentlyActive) {
-    const res = await fetch(API + "/api/ops/" + encodeURIComponent(op_id), {
-      method: "PATCH", headers: { ...authHdr(), "Content-Type": "application/json" },
+    const res = await SpecAuth.fetchAuth("/api/ops/" + encodeURIComponent(op_id), {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ is_active: !currentlyActive }),
     });
     if (!res.ok) { alert("Toggle failed: " + res.status); return; }
@@ -1136,7 +1108,7 @@ function locationToCoord(loc) {
   async function loadAssignmentsInto(op_id) {
     const host = document.getElementById("d-assignments");
     if (!host) return;
-    const res = await fetch(API + "/api/ops/" + encodeURIComponent(op_id) + "/assignments", { headers: authHdr() });
+    const res = await SpecAuth.fetchAuth("/api/ops/" + encodeURIComponent(op_id) + "/assignments");
     if (!res.ok) { host.innerHTML = "Failed to load: " + res.status; return; }
     const { rows } = await res.json();
     const chiefs   = rows.filter(r => r.role === "chief");
@@ -1173,8 +1145,8 @@ function locationToCoord(loc) {
   async function addAssign(op_id, email, role) {
     email = (email || "").trim().toLowerCase();
     if (!email) { alert("email required"); return; }
-    const res = await fetch(API + "/api/ops/" + encodeURIComponent(op_id) + "/assignments", {
-      method: "POST", headers: { ...authHdr(), "Content-Type": "application/json" },
+    const res = await SpecAuth.fetchAuth("/api/ops/" + encodeURIComponent(op_id) + "/assignments", {
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, role }),
     });
     const j = await res.json().catch(() => ({}));
@@ -1185,8 +1157,8 @@ function locationToCoord(loc) {
   }
   async function removeAssign(op_id, email) {
     if (!confirm(`Remove ${email} from this op?`)) return;
-    const res = await fetch(API + "/api/ops/" + encodeURIComponent(op_id) + "/assignments/" + encodeURIComponent(email), {
-      method: "DELETE", headers: authHdr(),
+    const res = await SpecAuth.fetchAuth("/api/ops/" + encodeURIComponent(op_id) + "/assignments/" + encodeURIComponent(email), {
+      method: "DELETE",
     });
     const j = await res.json().catch(() => ({}));
     if (!res.ok) { alert("Remove failed: " + (j.detail || res.status)); return; }
@@ -1232,8 +1204,8 @@ function locationToCoord(loc) {
     const orig = this.textContent;
     this.textContent = "Creating…";
     try {
-      const res = await fetch(API + "/api/ops", {
-        method: "POST", headers: { ...authHdr(), "Content-Type": "application/json" },
+      const res = await SpecAuth.fetchAuth("/api/ops", {
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const j = await res.json().catch(() => ({}));
@@ -1246,7 +1218,8 @@ function locationToCoord(loc) {
 
   // ---------- roles tab (unchanged behavior) ----------
   async function loadRoles() {
-    const res = await fetch(API + "/api/roles", { headers: authHdr() });
+    if (!["freddy", "general"].includes(window._currentUserRole)) return;
+    const res = await SpecAuth.fetchAuth("/api/roles");
     if (!res.ok) { showBanner("err", "Failed to load chiefs: " + res.status); return; }
     const { rows } = await res.json();
     const tbody = document.querySelector("#roles-table tbody");
@@ -1289,8 +1262,8 @@ function locationToCoord(loc) {
     if (!email) { alert("email required"); return; }
     this.disabled = true;
     try {
-      const res = await fetch(API + "/api/roles", {
-        method: "POST", headers: { ...authHdr(), "Content-Type": "application/json" },
+      const res = await SpecAuth.fetchAuth("/api/roles", {
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, role, can_create_ops: role === "viewer" ? false : cco }),
       });
       const j = await res.json().catch(() => ({}));
@@ -1312,8 +1285,8 @@ function locationToCoord(loc) {
   document.getElementById("r-role").onchange = updateCCOFieldVisibility;
 
   async function patchCCO(email, val) {
-    const res = await fetch(API + "/api/roles/" + encodeURIComponent(email), {
-      method: "PATCH", headers: { ...authHdr(), "Content-Type": "application/json" },
+    const res = await SpecAuth.fetchAuth("/api/roles/" + encodeURIComponent(email), {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ can_create_ops: val }),
     });
     const j = await res.json().catch(() => ({}));
@@ -1321,8 +1294,8 @@ function locationToCoord(loc) {
   }
   async function removeRole(email) {
     if (!confirm(`Remove chief ${email}? (also drops their op assignments)`)) return;
-    const res = await fetch(API + "/api/roles/" + encodeURIComponent(email), {
-      method: "DELETE", headers: authHdr(),
+    const res = await SpecAuth.fetchAuth("/api/roles/" + encodeURIComponent(email), {
+      method: "DELETE",
     });
     const j = await res.json().catch(() => ({}));
     if (!res.ok) { alert("Remove failed: " + (j.detail || res.status)); return; }

@@ -7,6 +7,7 @@ import uuid
 from datetime import datetime, timezone
 
 from crypto import encrypt
+from identity import clean_and_validate_id
 from storage import upload_to_storage
 import sheets as _sheets
 
@@ -18,9 +19,6 @@ ALLOWED_DOC_TYPES     = {"image/jpeg", "image/png", "image/webp", "application/p
 ALLOWED_PHOTO_TYPES   = {"image/jpeg", "image/png", "image/webp"}
 MAX_DOC_MB            = 2
 MAX_PHOTO_MB          = 2
-
-PAN_RE     = re.compile(r"^[A-Z]{5}[0-9]{4}[A-Z]$")
-AADHAAR_RE = re.compile(r"^\d{12}$")
 
 def _check_size(data: bytes, max_mb: int, label: str):
     if len(data) > max_mb * 1024 * 1024:
@@ -45,16 +43,6 @@ def _validate_video_url(url: str) -> str:
         raise HTTPException(400, "intro video must be a public http(s) URL")
     return url
 
-def _normalize_id(raw: str) -> str:
-    """Strip whitespace, dots, dashes from PAN/Aadhaar; uppercase the result."""
-    return re.sub(r"[\s.\-]+", "", raw or "").upper()
-
-def _validate_pan_or_aadhaar(raw: str) -> str:
-    cleaned = _normalize_id(raw)
-    if PAN_RE.match(cleaned) or AADHAAR_RE.match(cleaned):
-        return cleaned
-    raise HTTPException(400, "ID must be a 10-character PAN (ABCDE1234F) or 12-digit Aadhaar")
-
 def _normalize_phone(raw: str) -> str:
     """Strip spaces/dots/dashes/parens. Prepend +91 if no country code given.
     Accepts a leading 0 (some users write 09876543210) and drops it."""
@@ -78,7 +66,7 @@ async def _store(file_bytes: bytes, prefix: str, filename: str, mime: str, fallb
     key = f"{prefix}/{uuid.uuid4()}_{_safe_filename(filename, fallback_ext)}"
     return await asyncio.to_thread(upload_to_storage, file_bytes, key, mime)
 
-@router.post("/")
+@router.post("")
 async def submit(
     request: Request ,
 
@@ -147,7 +135,7 @@ async def submit(
     ifsc_code        = _normalize_ifsc(ifsc_code)
     bank_name        = (bank_name or "").strip()
     branch_name      = (branch_name or "").strip()
-    pan_number       = _validate_pan_or_aadhaar(pan_number)
+    pan_number       = clean_and_validate_id(pan_number)
 
     required_text = {
         "full_name": full_name, "whatsapp": whatsapp, "email": email,

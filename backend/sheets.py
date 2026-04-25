@@ -95,3 +95,75 @@ def full_sync(rows: list) -> None:
         valueInputOption="RAW",
         body={"values": data},
     ).execute()
+
+
+# ---------------------------------------------------------------------------
+# Operations tab — lives in the same spreadsheet as onboarding submissions.
+# Mirrors the operations table + comma-joined chief/captain assignments per op.
+# ---------------------------------------------------------------------------
+
+OPS_TAB = "Operations"
+
+HEADERS_OPS = [
+    "Op ID", "Factory", "Shift", "Location", "Map Link", "WhatsApp Group",
+    "POC1 Name", "POC1 Phone", "POC1 Role",
+    "POC2 Name", "POC2 Phone", "POC2 Role",
+    "Sales Team",
+    "Shift Start", "Shift End", "Reporting", "Deployment Start",
+    "Collection Start", "Report Submission", "Final Closing",
+    "Active", "Created",
+    "Chiefs", "Captains",
+]
+
+KEYS_OPS = [
+    "op_id", "factory_name", "shift", "location", "map_link", "whatsapp_group_url",
+    "poc1_name", "poc1_phone", "poc1_role",
+    "poc2_name", "poc2_phone", "poc2_role",
+    "sales_team_name",
+    "shift_start", "shift_end", "reporting_time", "deployment_start",
+    "collection_start", "report_submission_time", "final_closing_time",
+    "is_active", "created_at",
+    "chiefs", "captains",
+]
+
+
+def _to_row_ops(d: dict) -> list:
+    return [_cell(d.get(k)) for k in KEYS_OPS]
+
+
+def _col_letter(n: int) -> str:
+    """1-indexed column number -> A1-style letters (handles AA, AB, ...)."""
+    s = ""
+    while n > 0:
+        n, r = divmod(n - 1, 26)
+        s = chr(ord("A") + r) + s
+    return s
+
+
+def _ensure_ops_tab(svc, sid: str) -> None:
+    meta = svc.spreadsheets().get(spreadsheetId=sid).execute()
+    titles = {s["properties"]["title"] for s in meta.get("sheets", [])}
+    if OPS_TAB in titles:
+        return
+    svc.spreadsheets().batchUpdate(
+        spreadsheetId=sid,
+        body={"requests": [{"addSheet": {"properties": {"title": OPS_TAB}}}]},
+    ).execute()
+
+
+def full_sync_ops(rows: list) -> None:
+    """Overwrite the Operations tab with the given ops dicts. Headers + data."""
+    svc = _service()
+    sid = _sheet_id()
+    _ensure_ops_tab(svc, sid)
+    data = [HEADERS_OPS] + [_to_row_ops(r) for r in rows]
+    last_col = _col_letter(len(HEADERS_OPS))
+    # Clear first so a smaller dataset than last time doesn't leave stale rows.
+    svc.spreadsheets().values().clear(
+        spreadsheetId=sid, range=f"{OPS_TAB}!A:{last_col}",
+    ).execute()
+    svc.spreadsheets().values().update(
+        spreadsheetId=sid, range=f"{OPS_TAB}!A1",
+        valueInputOption="RAW",
+        body={"values": data},
+    ).execute()

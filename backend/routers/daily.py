@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, HTTPException, Depends, Form, File, UploadFile
-from datetime import datetime, time
+from datetime import datetime, time, timezone
 from typing import List, Optional
 import json
 import os
@@ -9,6 +9,7 @@ from deps import require_current_role, require_op_access
 from crypto import encrypt, hash_pan
 from exif import extract_gps
 from geo import haversine_m
+from identity import PHONE_RE, normalise_id, validate_id
 from storage import upload_attendance_photo
 from routers.reports import today_ist, parse_report_date
 
@@ -20,24 +21,6 @@ ALLOWED_PERSON_ROLES = {"chief", "captain", "operator"}
 ALLOWED_PHOTO_MIMES = {"image/jpeg", "image/heic", "image/heif"}
 MAX_PHOTO_MB = 5
 GEO_THRESHOLD_M = float(os.environ.get("GEO_VERIFY_THRESHOLD_M", "200"))
-
-PAN_RE     = re.compile(r"^[A-Z]{5}[0-9]{4}[A-Z]$")
-AADHAAR_RE = re.compile(r"^\d{12}$")
-PHONE_RE   = re.compile(r"^[6-9]\d{9}$")
-
-
-def _normalise_unique_id(raw: str) -> str:
-    """Strip whitespace/dashes and uppercase so PAN matches its regex. Aadhaar
-    stays digit-only after the same strip."""
-    return re.sub(r"[\s\-]+", "", (raw or "")).upper()
-
-
-def _validate_unique_id(value: str) -> None:
-    if not (PAN_RE.match(value) or AADHAAR_RE.match(value)):
-        raise HTTPException(
-            400,
-            "ID must be a 10-character PAN (ABCDE1234F) or a 12-digit Aadhaar",
-        )
 
 _DAILY_INT_FIELDS  = ["chiefs", "captains", "operators", "sd_cards_used", "sd_cards_left",
                       "devices_available", "devices_deployed", "devices_lost", "devices_recovered"]
@@ -120,7 +103,7 @@ async def submit_daily(
     for i, person in enumerate(attendance):
         name  = (person.get("full_name") or "").strip()
         phone = (person.get("phone") or "").strip()
-        pan   = _normalise_unique_id(person.get("pan") or "")   # PAN or Aadhaar
+        pan   = normalise_id(person.get("pan") or "")   # PAN or Aadhaar
         person_role = (person.get("person_role") or "operator").strip().lower()
         b_lat = person.get("browser_lat")
         b_lng = person.get("browser_lng")
@@ -133,7 +116,7 @@ async def submit_daily(
         if not PHONE_RE.match(phone):
             raise HTTPException(400, f"attendance[{i}]: invalid phone")
         try:
-            _validate_unique_id(pan)
+            validate_id(pan)
         except HTTPException as e:
             raise HTTPException(400, f"attendance[{i}]: {e.detail}")
         if pan in seen_pans:
@@ -281,7 +264,7 @@ async def submit_daily(
                 )
 
             status = "pending" if validator_role else "confirmed"
-            confirmed_at = datetime.utcnow() if status == "confirmed" else None
+            confirmed_at = datetime.now(timezone.utc) if status == "confirmed" else None
             confirmed_by = submitter_email if status == "confirmed" else None
             for p in prepared:
                 pan_h = hash_pan(p["pan"])

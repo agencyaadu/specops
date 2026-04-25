@@ -210,6 +210,7 @@
 </div>
 
 <script src="/config.js"></script>
+<script src="/assets/auth.js"></script>
 <script>
 // ================================================================
 // SpecOps Daily analytics - fed by /api/dashboard.
@@ -218,30 +219,15 @@
 // around (factory, location, shift, ops, deployed, available, sd, ...).
 // ================================================================
 
-const API      = window.BACKEND_URL;
-const TOKEN_K  = "spec_token";
 const whoEl    = document.getElementById("who");
 const banner   = document.getElementById("status-banner");
 const liveBadge = document.getElementById("liveStatus");
 
-(function captureToken() {
-  const p = new URLSearchParams(location.search);
-  const t = p.get("token");
-  if (t) {
-    localStorage.setItem(TOKEN_K, t);
-    p.delete("token");
-    const qs = p.toString();
-    history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
-  }
-})();
+// Token capture, sign-out, redirect-to-login etc. live in /assets/auth.js (SpecAuth).
+function showBanner(cls, msg) { SpecAuth.banner(banner, cls, msg); }
+function hideBanner()        { SpecAuth.banner(banner, "", ""); }
 
-function token() { return localStorage.getItem(TOKEN_K) || ""; }
-function authHdr() { return { Authorization: "Bearer " + token() }; }
-function redirectToLogin() { location.href = API + "/auth/google?next=" + encodeURIComponent(location.pathname); }
-function showBanner(cls, msg) { banner.className = "banner " + cls; banner.textContent = msg; banner.classList.remove("hidden"); }
-function hideBanner()        { banner.className = "banner hidden"; banner.textContent = ""; }
-
-document.getElementById("signout").onclick = () => { localStorage.removeItem(TOKEN_K); location.reload(); };
+SpecAuth.wireSignout();
 
 // ---------- STATE ----------
 let STATE = [];              // flattened (op, date) records for every fetched day
@@ -343,13 +329,12 @@ async function loadFromBackend(fromDate, toDate) {
   // One round-trip for the whole window instead of N parallel /api/dashboard calls.
   let res;
   try {
-    res = await fetch(API + "/api/dashboard/range?from=" + encodeURIComponent(fromDate) + "&to=" + encodeURIComponent(toDate), { headers: authHdr() });
+    res = await SpecAuth.fetchAuth("/api/dashboard/range?from=" + encodeURIComponent(fromDate) + "&to=" + encodeURIComponent(toDate));
   } catch (e) {
     liveBadge.textContent = "Error"; liveBadge.classList.remove("live");
     showBanner("err", "Network error: " + e.message);
     return;
   }
-  if (res.status === 401) { localStorage.removeItem(TOKEN_K); redirectToLogin(); return; }
   if (!res.ok) {
     liveBadge.textContent = "Error"; liveBadge.classList.remove("live");
     const j = await res.json().catch(() => ({}));
@@ -913,14 +898,8 @@ document.getElementById('refreshBtn').addEventListener('click', () => loadFromBa
 
 // ---------- BOOTSTRAP ----------
 async function bootstrap() {
-  if (!token()) return redirectToLogin();
-  let res;
-  try { res = await fetch(API + "/auth/verify?token=" + encodeURIComponent(token())); }
-  catch (e) { return showBanner("err", "Network error: " + e.message); }
-  if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
-  if (!res.ok) return showBanner("err", "Auth check failed: " + res.status);
-  const { user } = await res.json();
-  if (user.role === "owner") user.role = "freddy";
+  let user;
+  try { user = await SpecAuth.verify(banner); } catch { return; }
   if (!["freddy","general","chief","viewer"].includes(user.role)) {
     return showBanner("err", `Signed in as ${user.email} (role: ${user.role || "none"}). Analytics is for Freddys, generals, chiefs, and viewers.`);
   }

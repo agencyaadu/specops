@@ -141,42 +141,18 @@
 </div>
 
 <script src="/config.js"></script>
+<script src="/assets/auth.js"></script>
 <script>
 (function () {
-  const API     = window.BACKEND_URL;
-  const TOKEN_K = "spec_token";
   const whoEl   = document.getElementById("who");
   const nav     = document.getElementById("nav");
   const banner  = document.getElementById("status-banner");
   const appEl   = document.getElementById("app");
   const picker  = document.getElementById("date-picker");
 
-  (function captureToken() {
-    const p = new URLSearchParams(location.search);
-    const t = p.get("token");
-    if (t) {
-      localStorage.setItem(TOKEN_K, t);
-      p.delete("token");
-      const qs = p.toString();
-      history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
-    }
-  })();
+  function showBanner(cls, msg) { SpecAuth.banner(banner, cls, msg); }
 
-  function token() { return localStorage.getItem(TOKEN_K) || ""; }
-  function authHdr() { return { Authorization: "Bearer " + token() }; }
-  function redirectToLogin() {
-    location.href = API + "/auth/google?next=" + encodeURIComponent(location.pathname);
-  }
-  function showBanner(cls, msg) {
-    banner.className = "banner " + cls;
-    banner.textContent = msg;
-    banner.classList.remove("hidden");
-  }
-
-  document.getElementById("signout").onclick = function () {
-    localStorage.removeItem(TOKEN_K);
-    location.reload();
-  };
+  SpecAuth.wireSignout();
 
   function todayIsoIST() {
     // en-CA locale formats as YYYY-MM-DD, independent of the user's system tz.
@@ -184,18 +160,13 @@
   }
 
   async function bootstrap() {
-    if (!token()) return redirectToLogin();
-    let res;
-    try { res = await fetch(API + "/auth/verify?token=" + encodeURIComponent(token())); }
-    catch (e) { return showBanner("err", "Network error: " + e.message); }
-    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
-    if (!res.ok) return showBanner("err", "Auth check failed: " + res.status);
-    const { user } = await res.json();
-    if (user.role === "owner") user.role = "freddy";  // legacy JWT compat
+    let user;
+    try { user = await SpecAuth.verify(banner); } catch { return; }
     if (!["freddy","general","chief","viewer"].includes(user.role)) {
       return showBanner("err", `Signed in as ${user.email} (role: ${user.role || "none"}). Dashboard is for Freddys, generals, chiefs, and viewers.`);
     }
     whoEl.textContent = `${user.email} · ${user.role}`;
+    window._currentUserRole = user.role;
 
     // Admin surface is unified at /ops/general - the page hides admin-only
     // controls for chiefs based on role.
@@ -214,7 +185,7 @@
   async function loadPendingCount() {
     // Fail silently - the card just stays hidden if the endpoint isn't reachable.
     try {
-      const res = await fetch(API + "/api/validation/counts", { headers: authHdr() });
+      const res = await SpecAuth.fetchAuth("/api/validation/counts");
       if (!res.ok) return;
       const { pending } = await res.json();
       if (pending > 0) {
@@ -232,8 +203,8 @@
     const host = document.getElementById("ops-host");
     host.innerHTML = `<div class="empty">loading…</div>`;
     document.getElementById("summary").innerHTML = "";
-    const res = await fetch(API + "/api/dashboard?date=" + encodeURIComponent(dateStr), { headers: authHdr() });
-    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
+    let res;
+    try { res = await SpecAuth.fetchAuth("/api/dashboard?date=" + encodeURIComponent(dateStr)); } catch { return; }
     if (!res.ok) { host.innerHTML = `<div class="banner err">Failed: ${res.status}</div>`; return; }
     const d = await res.json();
     renderSummary(d);
@@ -282,8 +253,10 @@
       const factoryHtml = wa && /^https?:\/\//i.test(wa)
         ? `<a href="${esc(wa)}" target="_blank" rel="noopener" title="Open team WhatsApp"><strong>${esc(op.factory_name)}</strong></a>`
         : `<strong>${esc(op.factory_name)}</strong>`;
-      // Remind button appears only on pending-today rows; wired up below.
-      const remindBtn = state === "pending"
+      // Remind button appears only on pending-today rows for freddy/general
+      // (backend gates /api/reminders/discord to those roles); wired up below.
+      const canRemind = ["freddy", "general"].includes(window._currentUserRole);
+      const remindBtn = state === "pending" && canRemind
         ? `<button class="btn tiny remind-btn" title="Ping the assigned chief on Discord">Remind</button>`
         : "";
       return `
@@ -338,9 +311,9 @@
     btn.disabled = true;
     btn.textContent = "Pinging…";
     try {
-      const res = await fetch(API + "/api/reminders/discord", {
+      const res = await SpecAuth.fetchAuth("/api/reminders/discord", {
         method: "POST",
-        headers: { ...authHdr(), "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ op_id: opId }),
       });
       const j = await res.json().catch(() => ({}));
@@ -376,7 +349,8 @@
     drawerSub.textContent   = `${opId} · ${dateStr}`;
     drawerBody.innerHTML    = `<div class="empty">loading…</div>`;
     drawerBg.classList.add("open");
-    const res = await fetch(API + "/api/dashboard/attendance?op_id=" + encodeURIComponent(opId) + "&date=" + encodeURIComponent(dateStr), { headers: authHdr() });
+    let res;
+    try { res = await SpecAuth.fetchAuth("/api/dashboard/attendance?op_id=" + encodeURIComponent(opId) + "&date=" + encodeURIComponent(dateStr)); } catch { return; }
     if (!res.ok) { drawerBody.innerHTML = `<div class="banner err">Failed: ${res.status}</div>`; return; }
     const d = await res.json();
     if (!d.rows || d.rows.length === 0) {

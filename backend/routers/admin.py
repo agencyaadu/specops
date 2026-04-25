@@ -8,6 +8,7 @@ import time
 import jwt
 
 from crypto import decrypt
+from routers.ops import sync_ops_sheet_now
 import sheets as _sheets
 
 router = APIRouter()
@@ -116,6 +117,17 @@ async def sync_sheets(
     dicts = [_row_to_dict(r) for r in rows]
     await asyncio.to_thread(_sheets.full_sync, dicts)
     return {"synced": len(dicts)}
+
+@router.post("/sync-ops-sheet")
+async def sync_ops_sheet(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+):
+    _require_admin(authorization)
+    if not _sheets.sheets_enabled():
+        raise HTTPException(503, "Google Sheets not configured (GOOGLE_SHEETS_ID / GOOGLE_SERVICE_ACCOUNT_JSON missing)")
+    n = await sync_ops_sheet_now(request.app.state.db)
+    return {"synced": n}
 
 @router.get("/submissions/{sub_id}")
 async def get_submission(

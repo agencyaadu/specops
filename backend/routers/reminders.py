@@ -11,7 +11,7 @@ DISCORD_WEBHOOK_URL isn't set the endpoint returns 503.
 from fastapi import APIRouter, Request, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 import logging
 
@@ -24,9 +24,9 @@ log = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# freddy/general/viewer can ping; chiefs can't ping themselves or each other
-# (they'd just fire off the form instead).
-remind_roles = require_current_role("freddy", "general", "viewer")
+# freddy/general can ping; viewers are read-only, chiefs can't ping themselves
+# or each other (they'd just fire off the form instead).
+remind_roles = require_current_role("freddy", "general")
 
 COOLDOWN_MIN = 30
 
@@ -100,7 +100,7 @@ async def remind_discord(
     if not chiefs:
         raise HTTPException(404, "no chiefs assigned to this operation")
 
-    cooldown_cutoff = datetime.utcnow() - timedelta(minutes=COOLDOWN_MIN)
+    cooldown_cutoff = datetime.now(timezone.utc) - timedelta(minutes=COOLDOWN_MIN)
     sent_by = (claims.get("email") or "").lower()
 
     sent: list[dict] = []
@@ -120,7 +120,7 @@ async def remind_discord(
             """,
             body.op_id, email,
         )
-        if last and last.replace(tzinfo=None) > cooldown_cutoff:
+        if last and last > cooldown_cutoff:
             skipped.append({"chief_email": email, "reason": f"cooldown ({COOLDOWN_MIN}m)", "last_sent_at": last.isoformat()})
             await db.execute(
                 """

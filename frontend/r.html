@@ -177,10 +177,9 @@
 
 <script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.min.js"></script>
 <script src="/config.js"></script>
+<script src="/assets/auth.js"></script>
 <script>
 (function () {
-  const API      = window.BACKEND_URL;
-  const TOKEN_K  = "spec_token";
   // op_id may come from the path (/r/:op_id or /report/:op_id both rewrite to r.html)
   // or from ?op= for deep links; the user can also switch via the dropdown. Treat the
   // URL opId as just the initial selection.
@@ -212,31 +211,9 @@
 
   meta.textContent = opId || "-";
 
-  // Grab token from ?token= and stash it, clean URL.
-  (function captureToken() {
-    const p = new URLSearchParams(location.search);
-    const t = p.get("token");
-    if (t) {
-      localStorage.setItem(TOKEN_K, t);
-      p.delete("token");
-      const qs = p.toString();
-      history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
-    }
-  })();
-
-  function token() { return localStorage.getItem(TOKEN_K) || ""; }
-
-  function redirectToLogin() {
-    const next = encodeURIComponent(location.pathname);
-    location.href = API + "/auth/google?next=" + next;
-  }
-
-  function showBanner(cls, msg) {
-    banner.className = "banner " + cls;
-    banner.textContent = msg;
-    banner.classList.remove("hidden");
-  }
-  function hideBanner() { banner.className = "banner hidden"; banner.textContent = ""; }
+  // Token capture, sign-out, redirect-to-login etc. live in /assets/auth.js (SpecAuth).
+  function showBanner(cls, msg) { SpecAuth.banner(banner, cls, msg); }
+  function hideBanner() { SpecAuth.banner(banner, "", ""); }
 
   function resetFormState() {
     // Form should reset whenever op or date changes - otherwise stale people/events
@@ -381,16 +358,13 @@
   purgeOldDrafts();
 
   async function loadOpList() {
-    if (!token()) return redirectToLogin();
+    if (!SpecAuth.token()) return SpecAuth.redirectToLogin();
     let res;
     try {
       // Chiefs/captains see only ops they're assigned to. Admins see all.
       // Backend enforces the same gate on /api/op/{op_id} + submits.
-      res = await fetch(API + "/api/ops", {
-        headers: { Authorization: "Bearer " + token() },
-      });
+      res = await SpecAuth.fetchAuth("/api/ops");
     } catch (e) { return showBanner("err", "Network error: " + e.message); }
-    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
     if (res.status === 403) { return showBanner("err", "This account is not authorized to submit reports. Ask an admin to add you as a reporter."); }
     if (!res.ok) { return showBanner("err", "Failed to load operations: " + res.status); }
     const { rows } = await res.json();
@@ -439,19 +413,16 @@
   };
 
   async function loadContext() {
-    if (!token()) return redirectToLogin();
+    if (!SpecAuth.token()) return SpecAuth.redirectToLogin();
     if (!opId) return;
     const myToken = ++loadToken;
     let res;
     const qs = selectedDate ? ("?date=" + encodeURIComponent(selectedDate)) : "";
     try {
-      res = await fetch(API + "/api/op/" + encodeURIComponent(opId) + qs, {
-        headers: { Authorization: "Bearer " + token() },
-      });
+      res = await SpecAuth.fetchAuth("/api/op/" + encodeURIComponent(opId) + qs);
     } catch (e) { return showBanner("err", "Network error: " + e.message); }
     if (myToken !== loadToken) return;   // user changed selection mid-flight
 
-    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
     if (res.status === 403) { return showBanner("err", "You're not assigned to this operation."); }
     if (res.status === 404) { return showBanner("err", "Operation not found."); }
     if (res.status === 410) {
@@ -729,12 +700,10 @@
       fd.append("payload", JSON.stringify(payload.json));
       payload.photos.forEach(f => fd.append("photos", f));
 
-      const res = await fetch(API + "/api/daily/" + encodeURIComponent(opId), {
+      const res = await SpecAuth.fetchAuth("/api/daily/" + encodeURIComponent(opId), {
         method: "POST",
-        headers: { Authorization: "Bearer " + token() },
         body: fd,
       });
-      if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
       const j = await res.json().catch(() => ({}));
       if (!res.ok) { alert("Submit failed: " + (j.detail || res.status)); return; }
       // Submit landed - drop the draft so it won't prompt on next load.
