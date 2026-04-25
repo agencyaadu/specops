@@ -199,19 +199,6 @@ ALTER TABLE bot_roles DROP CONSTRAINT IF EXISTS bot_roles_role_check;
 ALTER TABLE bot_roles ADD CONSTRAINT bot_roles_role_check CHECK (role IN ('freddy','general','chief','captain','viewer'));
 """
 
-CREATE_NOTES = """
-CREATE TABLE IF NOT EXISTS captain_notes (
-    id          BIGSERIAL PRIMARY KEY ,
-    email       TEXT NOT NULL ,
-    role        TEXT ,
-    op_id       TEXT REFERENCES operations(op_id) ON DELETE SET NULL ,
-    kind        TEXT NOT NULL CHECK (kind IN ('journal','complaint','greeting','other')) ,
-    note        TEXT NOT NULL ,
-    created_at  TIMESTAMPTZ DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_captain_notes_created ON captain_notes(created_at DESC);
-"""
-
 CREATE_OP_ASSIGNMENTS = """
 CREATE TABLE IF NOT EXISTS op_assignments (
     op_id             TEXT NOT NULL REFERENCES operations(op_id) ON DELETE CASCADE ,
@@ -232,7 +219,6 @@ ALL_DDL = [
     CREATE_BOT_ROLES,
     CREATE_ATTENDANCE,
     CREATE_OP_ASSIGNMENTS,
-    CREATE_NOTES,
     CREATE_REPORT_REMINDERS,
 ]
 
@@ -243,13 +229,11 @@ async def init_db(pool: asyncpg.Pool):
         await _seed_admins(conn)
 
 async def _seed_admins(conn: asyncpg.Connection):
-    # FREDDY_EMAILS seeds the top-tier role; MARSHAL_EMAILS / OWNER_EMAILS
-    # remain accepted as legacy aliases (both upgrade to 'freddy').
-    # GENERAL_EMAILS seeds second-tier admins.
+    # FREDDY_EMAILS seeds the top-tier role; GENERAL_EMAILS seeds the second
+    # tier. The legacy MARSHAL_EMAILS / OWNER_EMAILS aliases were dropped -
+    # set FREDDY_EMAILS instead.
     for env_var, role in (
         ("FREDDY_EMAILS",  "freddy"),
-        ("MARSHAL_EMAILS", "freddy"),   # legacy alias
-        ("OWNER_EMAILS",   "freddy"),   # legacy alias
         ("GENERAL_EMAILS", "general"),
     ):
         raw = os.environ.get(env_var, "").strip()

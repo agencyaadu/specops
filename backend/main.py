@@ -23,7 +23,7 @@ if not _allowed_origins or "*" in _allowed_origins:
     raise SystemExit("FATAL: ALLOWED_ORIGINS must be an explicit comma-separated list (no wildcard)")
 
 import logging
-from routers import submissions, auth, admin, ops, reports, daily, roles, assignments, notes, dashboard, analytics, validation, reminders, attendance
+from routers import submissions, auth, admin, ops, reports, daily, roles, assignments, dashboard, analytics, validation, reminders, attendance
 from db import init_db
 import sheets as _sheets
 
@@ -66,7 +66,6 @@ app.include_router(assignments.router, prefix="/api/ops",   tags=["assignments"]
 app.include_router(reports.router,     prefix="/api/op",    tags=["reports"])
 app.include_router(daily.router,       prefix="/api/daily", tags=["daily"])
 app.include_router(roles.router,       prefix="/api/roles", tags=["roles"])
-app.include_router(notes.router,       prefix="/api/notes", tags=["notes"])
 app.include_router(dashboard.router,   prefix="/api/dashboard", tags=["dashboard"])
 app.include_router(analytics.router,   prefix="/api/analytics", tags=["analytics"])
 app.include_router(validation.router,  prefix="/api/validation", tags=["validation"])

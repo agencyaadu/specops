@@ -62,9 +62,7 @@
   label { display:block; font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
   .row2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   @media (max-width:640px) { .row2 { grid-template-columns:1fr; } }
-  .form-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:1rem; }
   .hidden { display:none; }
-  .note-hint { font-size:11px; color:var(--hint); margin-top:6px; }
   .empty { padding:20px; text-align:center; color:var(--hint); font-size:11px; letter-spacing:.14em; text-transform:uppercase; }
 </style>
 <link rel="stylesheet" href="/assets/theme.css" />
@@ -103,38 +101,6 @@
       </div>
       <div class="card-body" style="padding:14px 16px">
         <div id="ops-host"><div class="empty">loading…</div></div>
-      </div>
-    </section>
-
-    <section class="card">
-      <div class="card-head">
-        <span><span class="slash">//</span>&nbsp; Say Something</span>
-      </div>
-      <div class="card-body">
-        <p class="note-hint">Drop a journal entry, flag something, or leave a greeting. Your note goes to the generals - they'll follow up if needed.</p>
-        <div class="row2" style="margin-top:10px">
-          <div class="field">
-            <label>Kind</label>
-            <select id="n-kind">
-              <option value="journal" selected>journal</option>
-              <option value="complaint">complaint</option>
-              <option value="greeting">greeting</option>
-              <option value="other">other</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>About which op? (optional)</label>
-            <select id="n-op"><option value="">- all / general -</option></select>
-          </div>
-        </div>
-        <div class="field">
-          <label>Note</label>
-          <textarea id="n-note" maxlength="2000" placeholder="Anything on your mind…"></textarea>
-        </div>
-        <div class="form-actions">
-          <button class="btn primary" id="send-note">Send</button>
-        </div>
-        <div id="note-ack" class="hidden" style="margin-top:10px"></div>
       </div>
     </section>
   </div>
@@ -254,45 +220,7 @@
         </div>
       `;
     }).join("");
-
-    // Populate the per-op dropdown in the note form.
-    const sel = document.getElementById("n-op");
-    withStatus.filter(o => o.is_active).forEach(op => {
-      const o = document.createElement("option");
-      o.value = op.op_id; o.textContent = `${op.factory_name} · ${op.shift}`;
-      sel.appendChild(o);
-    });
   }
-
-  document.getElementById("send-note").onclick = async function () {
-    const payload = {
-      kind:  document.getElementById("n-kind").value,
-      note:  document.getElementById("n-note").value.trim(),
-      op_id: document.getElementById("n-op").value || null,
-    };
-    if (!payload.note) { alert("Write something first."); return; }
-    this.disabled = true;
-    const orig = this.textContent; this.textContent = "Sending…";
-    const ack = document.getElementById("note-ack");
-    try {
-      const res = await fetch(API + "/api/notes", {
-        method: "POST", headers: { ...authHdr(), "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const j = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        ack.className = "banner err";
-        ack.textContent = "Send failed: " + (j.detail || res.status);
-      } else {
-        ack.className = "banner ok";
-        ack.textContent = "Sent. Thanks.";
-        document.getElementById("n-note").value = "";
-      }
-      ack.classList.remove("hidden");
-    } finally {
-      this.disabled = false; this.textContent = orig;
-    }
-  };
 
   function todayStr() {
     const d = new Date();
