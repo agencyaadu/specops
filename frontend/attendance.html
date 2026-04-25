@@ -137,10 +137,9 @@
 
 <script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.min.js"></script>
 <script src="/config.js"></script>
+<script src="/assets/auth.js"></script>
 <script>
 (function () {
-  const API      = window.BACKEND_URL;
-  const TOKEN_K  = "spec_token";
   // Path: /attendance/:op_id or /attendance (dropdown-driven).
   let opId = "";
   {
@@ -168,21 +167,9 @@
 
   meta.textContent = opId || "-";
 
-  (function captureToken() {
-    const p = new URLSearchParams(location.search);
-    const t = p.get("token");
-    if (t) {
-      localStorage.setItem(TOKEN_K, t);
-      p.delete("token");
-      const qs = p.toString();
-      history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
-    }
-  })();
-
-  function token() { return localStorage.getItem(TOKEN_K) || ""; }
-  function redirectToLogin() { location.href = API + "/auth/google?next=" + encodeURIComponent(location.pathname); }
-  function showBanner(cls, msg) { banner.className = "banner " + cls; banner.textContent = msg; banner.classList.remove("hidden"); }
-  function hideBanner()        { banner.className = "banner hidden"; banner.textContent = ""; }
+  // Token capture, sign-out, redirect-to-login etc. live in /assets/auth.js (SpecAuth).
+  function showBanner(cls, msg) { SpecAuth.banner(banner, cls, msg); }
+  function hideBanner()        { SpecAuth.banner(banner, "", ""); }
 
   function resetFormState() {
     appEl.classList.add("hidden");
@@ -289,11 +276,10 @@
   purgeOldDrafts();
 
   async function loadOpList() {
-    if (!token()) return redirectToLogin();
+    if (!SpecAuth.token()) return SpecAuth.redirectToLogin();
     let res;
-    try { res = await fetch(API + "/api/ops", { headers: { Authorization: "Bearer " + token() } }); }
+    try { res = await SpecAuth.fetchAuth("/api/ops"); }
     catch (e) { return showBanner("err", "Network error: " + e.message); }
-    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
     if (res.status === 403) { return showBanner("err", "Not authorized to submit attendance."); }
     if (!res.ok) { return showBanner("err", "Failed to load operations: " + res.status); }
     const { rows } = await res.json();
@@ -338,17 +324,16 @@
   };
 
   async function loadContext() {
-    if (!token()) return redirectToLogin();
+    if (!SpecAuth.token()) return SpecAuth.redirectToLogin();
     if (!opId) return;
     const myToken = ++loadToken;
     let res;
     const qs = selectedDate ? ("?date=" + encodeURIComponent(selectedDate)) : "";
     try {
-      res = await fetch(API + "/api/op/" + encodeURIComponent(opId) + qs, { headers: { Authorization: "Bearer " + token() } });
+      res = await SpecAuth.fetchAuth("/api/op/" + encodeURIComponent(opId) + qs);
     } catch (e) { return showBanner("err", "Network error: " + e.message); }
     if (myToken !== loadToken) return;
 
-    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
     if (res.status === 403) { return showBanner("err", "You're not assigned to this operation."); }
     if (res.status === 404) { return showBanner("err", "Operation not found."); }
     if (res.status === 410) { return showBanner("err", "Operation is inactive."); }
@@ -545,10 +530,9 @@
       fd.append("payload", JSON.stringify(payload.json));
       payload.photos.forEach(f => fd.append("photos", f));
 
-      const res = await fetch(API + "/api/attendance/" + encodeURIComponent(opId), {
-        method: "POST", headers: { Authorization: "Bearer " + token() }, body: fd,
+      const res = await SpecAuth.fetchAuth("/api/attendance/" + encodeURIComponent(opId), {
+        method: "POST", body: fd,
       });
-      if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
       const j = await res.json().catch(() => ({}));
       if (!res.ok) { alert("Submit failed: " + (j.detail || res.status)); return; }
       clearDraft(opId, selectedDate);

@@ -2,6 +2,8 @@ from fastapi import APIRouter, Request, HTTPException, Depends, Header, Query
 from pydantic import BaseModel
 from typing import Optional
 from datetime import time, datetime
+import asyncio
+import logging
 import re
 
 try:
@@ -10,6 +12,9 @@ except ImportError:  # pragma: no cover
     from backports.zoneinfo import ZoneInfo  # type: ignore
 
 from deps import require_current_role, has_op_access
+import sheets as _sheets
+
+log = logging.getLogger(__name__)
 
 _IST = ZoneInfo("Asia/Kolkata")
 
@@ -90,6 +95,51 @@ def _row_out(row) -> dict:
             d[k] = d[k].strftime("%H:%M") if hasattr(d[k], "strftime") else str(d[k])
     return d
 
+
+# ---------------------------------------------------------------------------
+# Google Sheets mirror — pulls all ops + assignments and replaces the
+# "Operations" tab. Fire-and-forget: callers never block on Sheets latency.
+# ---------------------------------------------------------------------------
+
+_OPS_SHEET_SQL = """
+SELECT o.*,
+       COALESCE((SELECT string_agg(email, ', ' ORDER BY email)
+                   FROM op_assignments
+                  WHERE op_id = o.op_id AND role = 'chief'),   '') AS chiefs,
+       COALESCE((SELECT string_agg(email, ', ' ORDER BY email)
+                   FROM op_assignments
+                  WHERE op_id = o.op_id AND role = 'captain'), '') AS captains
+  FROM operations o
+ ORDER BY o.factory_name, o.shift
+"""
+
+
+async def _ops_sheet_rows(db) -> list:
+    rows = await db.fetch(_OPS_SHEET_SQL)
+    return [_row_out(r) for r in rows]
+
+
+def schedule_ops_sheet_sync(db) -> None:
+    """Schedule a background full sync of the Operations tab. No-op if Sheets
+    isn't configured. Safe to call from any handler — never raises."""
+    if not _sheets.sheets_enabled():
+        return
+    async def _push():
+        try:
+            rows = await _ops_sheet_rows(db)
+            await asyncio.to_thread(_sheets.full_sync_ops, rows)
+        except Exception:
+            log.exception("ops sheets sync failed")
+    asyncio.create_task(_push())
+
+
+async def sync_ops_sheet_now(db) -> int:
+    """Synchronous full sync used by the manual /admin/sync-ops-sheet endpoint.
+    Returns the number of rows written (not counting the header)."""
+    rows = await _ops_sheet_rows(db)
+    await asyncio.to_thread(_sheets.full_sync_ops, rows)
+    return len(rows)
+
 @router.post("")
 async def create_op(body: OpIn, request: Request, claims: dict = Depends(general_or_chief)):
     # Chiefs must have can_create_ops granted; generals always can.
@@ -153,6 +203,7 @@ async def create_op(body: OpIn, request: Request, claims: dict = Depends(general
                 )
 
     row = await db.fetchrow("SELECT * FROM operations WHERE op_id = $1", op_id)
+    schedule_ops_sheet_sync(db)
     return _row_out(row)
 
 @router.get("")
@@ -254,4 +305,5 @@ async def patch_op(op_id: str, body: OpPatch, request: Request, claims: dict = D
     )
     if not row:
         raise HTTPException(404, "not found")
+    schedule_ops_sheet_sync(db)
     return _row_out(row)

@@ -8,7 +8,7 @@
   "rewrites": [
     { "source": "/api/:path*",    "destination": "https://backend-production-3d2d.up.railway.app/api/:path*" },
     { "source": "/auth/:path*",   "destination": "https://backend-production-3d2d.up.railway.app/auth/:path*" },
-    { "source": "/submit/:path*", "destination": "https://backend-production-3d2d.up.railway.app/submit/:path*" },
+    { "source": "/submit",        "destination": "https://backend-production-3d2d.up.railway.app/submit" },
     { "source": "/admin/:path+",  "destination": "https://backend-production-3d2d.up.railway.app/admin/:path+" },
     { "source": "/health",        "destination": "https://backend-production-3d2d.up.railway.app/health" },
 

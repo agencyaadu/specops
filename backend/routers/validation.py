@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, HTTPException, Depends
 from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from deps import require_current_role
 from storage import sign_attendance_url
@@ -119,7 +119,7 @@ async def confirm(att_id: int, request: Request, claims: dict = Depends(validato
          WHERE id = $1 AND status = 'pending'
          RETURNING *
         """,
-        att_id, email, datetime.utcnow(),
+        att_id, email, datetime.now(timezone.utc),
     )
     if not row:
         raise HTTPException(409, "row is no longer pending")
@@ -153,7 +153,7 @@ async def reject(
          WHERE id = $1 AND status = 'pending'
          RETURNING *
         """,
-        att_id, email, datetime.utcnow(), reason,
+        att_id, email, datetime.now(timezone.utc), reason,
     )
     if not row:
         raise HTTPException(409, "row is no longer pending")

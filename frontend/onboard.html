@@ -859,7 +859,9 @@
 </div>
 
 <script>
-const API = window.BACKEND_URL || 'http://localhost:8000';
+// Use ?? (not ||) — config.js sets BACKEND_URL = '' in prod for same-origin
+// fetches; empty string is falsy so || would defeat that and route to localhost.
+const API = window.BACKEND_URL ?? 'http://localhost:8000';
 
 /* --- theme toggle --- */
 function applyThemeLabel() {
@@ -1334,7 +1336,7 @@ document.getElementById('onboarding-form').addEventListener('submit', async (e) 
   setLog('Uploading...', '');
 
   try {
-    const res = await fetch(API + '/submit/', { method: 'POST', body: fd });
+    const res = await fetch(API + '/submit', { method: 'POST', body: fd });
     const data = await res.json();
 
     if (res.ok && data.ok) {

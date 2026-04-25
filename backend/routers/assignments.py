@@ -3,6 +3,7 @@ from pydantic import BaseModel, EmailStr
 from typing import Literal
 
 from deps import require_current_role, has_op_access
+from routers.ops import schedule_ops_sheet_sync
 
 router = APIRouter()
 
@@ -90,6 +91,7 @@ async def add_assignment(
                 """,
                 op_id, email, body.role, caller_email,
             )
+    schedule_ops_sheet_sync(request.app.state.db)
     return _row_out(row)
 
 @router.delete("/{op_id}/assignments/{email}")
@@ -110,4 +112,5 @@ async def remove_assignment(
         "DELETE FROM op_assignments WHERE op_id = $1 AND email = $2",
         op_id, target,
     )
+    schedule_ops_sheet_sync(request.app.state.db)
     return {"ok": True, "removed": {"op_id": op_id, "email": target}}

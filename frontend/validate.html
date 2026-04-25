@@ -114,55 +114,23 @@
 </div>
 
 <script src="/config.js"></script>
+<script src="/assets/auth.js"></script>
 <script>
 (function () {
-  const API     = window.BACKEND_URL;
-  const TOKEN_K = "spec_token";
   const whoEl   = document.getElementById("who");
   const banner  = document.getElementById("status-banner");
   const appEl   = document.getElementById("app");
   const host    = document.getElementById("groups-host");
   let currentRejectId = null;
 
-  (function captureToken() {
-    const p = new URLSearchParams(location.search);
-    const t = p.get("token");
-    if (t) {
-      localStorage.setItem(TOKEN_K, t);
-      p.delete("token");
-      const qs = p.toString();
-      history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
-    }
-  })();
-
-  function token() { return localStorage.getItem(TOKEN_K) || ""; }
-  function authHdr() { return { Authorization: "Bearer " + token() }; }
-  function redirectToLogin() {
-    location.href = API + "/auth/google?next=" + encodeURIComponent(location.pathname);
-  }
-  function showBanner(cls, msg) {
-    banner.className = "banner " + cls;
-    banner.textContent = msg;
-    banner.classList.remove("hidden");
-  }
-  function hideBanner() { banner.className = "banner hidden"; banner.textContent = ""; }
-
-  document.getElementById("signout").onclick = () => {
-    localStorage.removeItem(TOKEN_K);
-    location.reload();
-  };
+  SpecAuth.wireSignout();
 
   async function bootstrap() {
-    if (!token()) return redirectToLogin();
-    let res;
-    try { res = await fetch(API + "/auth/verify?token=" + encodeURIComponent(token())); }
-    catch (e) { return showBanner("err", "Network error: " + e.message); }
-    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
-    if (!res.ok) return showBanner("err", "Auth check failed: " + res.status);
-    const { user } = await res.json();
-    if (user.role === "owner") user.role = "freddy";
+    let user;
+    try { user = await SpecAuth.verify(banner); } catch { return; }
     if (!["captain","chief","general","freddy"].includes(user.role)) {
-      return showBanner("err", `Signed in as ${user.email} (role: ${user.role || "none"}). Validation is for captains, chiefs, and admins.`);
+      return SpecAuth.banner(banner, "err",
+        `Signed in as ${user.email} (role: ${user.role || "none"}). Validation is for captains, chiefs, and admins.`);
     }
     // Send captains back to captain.html, everyone else back to dashboard.
     document.getElementById("back-link").href = user.role === "captain" ? "/ops/captain" : "/ops/dashboard";
@@ -173,8 +141,8 @@
 
   async function loadPending() {
     host.innerHTML = `<div class="empty">loading…</div>`;
-    const res = await fetch(API + "/api/validation/pending", { headers: authHdr() });
-    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
+    let res;
+    try { res = await SpecAuth.fetchAuth("/api/validation/pending"); } catch { return; }
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
       host.innerHTML = `<div class="banner err">Failed to load: ${j.detail || res.status}</div>`;
@@ -249,10 +217,9 @@
     btn.disabled = true;
     const orig = btn.textContent;
     btn.textContent = "…";
-    const res = await fetch(API + "/api/validation/" + id + "/confirm", {
-      method: "POST", headers: authHdr(),
-    });
-    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
+    let res;
+    try { res = await SpecAuth.fetchAuth("/api/validation/" + id + "/confirm", { method: "POST" }); }
+    catch { return; }
     if (!res.ok) {
       const j = await res.json().catch(() => ({}));
       alert("Confirm failed: " + (j.detail || res.status));
@@ -262,7 +229,7 @@
     }
     // Remove the row on success; if the card becomes empty, drop the card.
     removeRow(btn);
-    hideBanner();
+    SpecAuth.banner(banner, "", "");
   }
 
   function openReject(id, who) {
@@ -283,12 +250,14 @@
     this.disabled = true;
     const orig = this.textContent; this.textContent = "…";
     try {
-      const res = await fetch(API + "/api/validation/" + currentRejectId + "/reject", {
-        method: "POST",
-        headers: { ...authHdr(), "Content-Type": "application/json" },
-        body: JSON.stringify({ reason }),
-      });
-      if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
+      let res;
+      try {
+        res = await SpecAuth.fetchAuth("/api/validation/" + currentRejectId + "/reject", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason }),
+        });
+      } catch { return; }
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         alert("Reject failed: " + (j.detail || res.status));

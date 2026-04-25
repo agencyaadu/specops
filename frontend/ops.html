@@ -70,54 +70,25 @@
 </div>
 
 <script src="/config.js"></script>
+<script src="/assets/auth.js"></script>
 <script>
 (function () {
-  const API     = window.BACKEND_URL;
-  const TOKEN_K = "spec_token";
-  const whoEl   = document.getElementById("who");
-  const banner  = document.getElementById("status-banner");
-  const loader  = document.getElementById("loader");
+  const whoEl       = document.getElementById("who");
+  const banner      = document.getElementById("status-banner");
+  const loader      = document.getElementById("loader");
   const signoutBtn  = document.getElementById("signout");
-
-  (function captureToken() {
-    const p = new URLSearchParams(location.search);
-    const t = p.get("token");
-    if (t) {
-      localStorage.setItem(TOKEN_K, t);
-      p.delete("token");
-      const qs = p.toString();
-      history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
-    }
-  })();
-
-  function token() { return localStorage.getItem(TOKEN_K) || ""; }
-  function authHdr() { return { Authorization: "Bearer " + token() }; }
-
-  function redirectToLogin() {
-    location.href = API + "/auth/google?next=" + encodeURIComponent(location.pathname);
-  }
 
   function showBanner(cls, msg) {
     loader.classList.add("hidden");
-    banner.className = "banner " + cls;
-    banner.textContent = msg;
-    banner.classList.remove("hidden");
+    SpecAuth.banner(banner, cls, msg);
   }
 
-  signoutBtn.onclick = function () {
-    localStorage.removeItem(TOKEN_K);
-    location.reload();
-  };
+  signoutBtn.onclick = SpecAuth.signOut;
 
   async function bootstrap() {
-    if (!token()) return redirectToLogin();
-    let res;
-    try { res = await fetch(API + "/auth/verify?token=" + encodeURIComponent(token())); }
-    catch (e) { return showBanner("err", "Network error: " + e.message); }
-    if (res.status === 401) { localStorage.removeItem(TOKEN_K); return redirectToLogin(); }
-    if (!res.ok) return showBanner("err", "Auth check failed: " + res.status);
-    const { user } = await res.json();
-    if (user.role === "owner") user.role = "freddy";  // legacy JWT compat
+    let user;
+    try { user = await SpecAuth.verify(banner); }
+    catch { loader.classList.add("hidden"); return; }
 
     whoEl.textContent = `${user.email} · ${user.role || "no role"}`;
     signoutBtn.classList.remove("hidden");
