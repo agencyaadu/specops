@@ -219,17 +219,19 @@ CREATE TABLE IF NOT EXISTS v2.attendance (
     phone               TEXT,
     person_role         TEXT NOT NULL CHECK (person_role IN ('CHIEF','CAPTAIN','OPERATOR')),
 
-    -- Submission proof.
+    -- Photo proof (no geo verification — review chain handles trust).
     photo_url           TEXT,
-    browser_lat         NUMERIC,
-    browser_lng         NUMERIC,
-    distance_m          NUMERIC,
-    verified_geo        BOOLEAN NOT NULL DEFAULT FALSE,
 
     -- Validation lifecycle. Status changes = new rows with new ts.
+    -- Approval chain follows the rank ladder one step up:
+    --   OPERATOR  → reviewed by CAPTAIN
+    --   CAPTAIN   → reviewed by CHIEF
+    --   CHIEF     → reviewed by GENERAL
+    -- The validator_role on the row is who is *expected* to act on it next.
     status              TEXT NOT NULL DEFAULT 'PENDING'
                           CHECK (status IN ('PENDING','CONFIRMED','REJECTED')),
-    validator_role      TEXT CHECK (validator_role IN ('CHIEF','CAPTAIN', NULL)),
+    validator_role      TEXT CHECK (validator_role IN ('CAPTAIN','CHIEF','GENERAL')),
+    validated_by_email  TEXT,        -- set on CONFIRMED / REJECTED rows
     rejection_reason    TEXT,
 
     -- Append metadata.
@@ -386,9 +388,9 @@ att AS (
     SELECT
         factory_id, shift, report_date,
         COUNT(*)                                   AS attendance_count,
-        COUNT(*) FILTER (WHERE verified_geo)       AS verified_count,
         COUNT(*) FILTER (WHERE status='CONFIRMED') AS confirmed_count,
-        COUNT(*) FILTER (WHERE status='PENDING')   AS pending_count
+        COUNT(*) FILTER (WHERE status='PENDING')   AS pending_count,
+        COUNT(*) FILTER (WHERE status='REJECTED')  AS rejected_count
       FROM v2.v_attendance_current
      WHERE report_date = (SELECT d FROM today)
      GROUP BY factory_id, shift, report_date
@@ -401,9 +403,9 @@ SELECT
     (SELECT d FROM today)               AS report_date,
     f.state                             AS factory_state,
     COALESCE(a.attendance_count, 0)     AS attendance_count,
-    COALESCE(a.verified_count,   0)     AS verified_count,
     COALESCE(a.confirmed_count,  0)     AS confirmed_count,
     COALESCE(a.pending_count,    0)     AS pending_count,
+    COALESCE(a.rejected_count,   0)     AS rejected_count,
     r.id                                AS daily_report_id,
     r.payload                           AS daily_report,
     r.submitted_by                      AS daily_submitted_by,
@@ -481,3 +483,20 @@ def slugify_factory(factory_name: str) -> str:
 def operation_id(factory_id: str, shift: str, pan_hash: str) -> str:
     """Stable operation_id used as the latest-row dedup key."""
     return f"{factory_id}__{shift.replace(' ', '_').lower()}__{pan_hash[:12]}"
+
+
+# Approval chain: each row's validator_role is the rank one step above
+# the person who submitted attendance. Operators are reviewed by captains,
+# captains by chiefs, chiefs by generals. Generals + freddy don't submit
+# attendance themselves (no row → no validator).
+VALIDATOR_FOR = {
+    "OPERATOR": "CAPTAIN",
+    "CAPTAIN":  "CHIEF",
+    "CHIEF":    "GENERAL",
+}
+
+
+def validator_for(person_role: str) -> str:
+    """Return the role expected to validate this person's attendance.
+    Raises KeyError for ranks that don't submit attendance."""
+    return VALIDATOR_FOR[person_role.upper()]
